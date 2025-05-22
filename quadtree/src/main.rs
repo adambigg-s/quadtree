@@ -1,4 +1,6 @@
+mod quadtree;
 mod shader;
+mod state;
 
 use std::ffi::c_void;
 use std::ffi::CString;
@@ -9,14 +11,24 @@ use sokol::gfx;
 use sokol::glue as sgl;
 use sokol::log as slog;
 
-struct State {
+use state::State;
+
+struct ApplicationState {
     pipeline: gfx::Pipeline,
     bindings: gfx::Bindings,
     pass_action: gfx::PassAction,
+
+    state: State,
+}
+
+impl ApplicationState {
+    fn update(&mut self) {
+        self.state.update();
+    }
 }
 
 extern "C" fn init(ptr: *mut c_void) {
-    let state = unsafe { &mut *(ptr as *mut State) };
+    let state = unsafe { &mut *(ptr as *mut ApplicationState) };
 
     gfx::setup(&gfx::Desc {
         environment: sgl::environment(),
@@ -57,7 +69,9 @@ extern "C" fn init(ptr: *mut c_void) {
 }
 
 extern "C" fn frame(ptr: *mut c_void) {
-    let state = unsafe { &mut *(ptr as *mut State) };
+    let state = unsafe { &mut *(ptr as *mut ApplicationState) };
+
+    state.update();
 
     gfx::begin_pass(&gfx::Pass {
         action: state.pass_action,
@@ -72,7 +86,7 @@ extern "C" fn frame(ptr: *mut c_void) {
 }
 
 extern "C" fn event(event: *const sapp::Event, ptr: *mut c_void) {
-    let _state = unsafe { &mut *(ptr as *mut State) };
+    let _state = unsafe { &mut *(ptr as *mut ApplicationState) };
     let event = unsafe { *event };
 
     if event.key_code == sapp::Keycode::Escape {
@@ -80,20 +94,20 @@ extern "C" fn event(event: *const sapp::Event, ptr: *mut c_void) {
     }
 }
 
+#[allow(unused_must_use)]
 extern "C" fn cleanup(ptr: *mut c_void) {
-    unsafe {
-        if !ptr.is_null() {
-            let _ = Box::from_raw(&mut *(ptr as *mut State));
-        }
+    if !ptr.is_null() {
+        unsafe { Box::from_raw(&mut *(ptr as *mut ApplicationState)) };
     }
     gfx::shutdown();
 }
 
 fn main() {
-    let state = State {
+    let state = ApplicationState {
         pipeline: gfx::Pipeline::new(),
         bindings: gfx::Bindings::new(),
         pass_action: gfx::PassAction::new(),
+        state: State {},
     };
     let state_ptr = Box::into_raw(Box::from(state)) as *mut c_void;
 

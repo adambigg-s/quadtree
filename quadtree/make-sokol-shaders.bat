@@ -1,8 +1,12 @@
 @echo off
 
-set arg1=%1
-if "%arg1%"=="" set arg1=run
+set arg=%1
+if "%arg%"=="" set arg=build
 
-sokol-shdc.exe -i ./src/shaders/shader.glsl -o ./src/shader.rs --slang hlsl5:wgsl:glsl430 -f sokol_rust
+echo. & echo + building shaders +
+sokol-shdc.exe -i ./src/shaders/tri_shader.glsl -o ./src/compiled_shaders/tri_shader.rs --slang hlsl5:wgsl:glsl430 -f sokol_rust
+sokol-shdc.exe -i ./src/shaders/circ_shader.glsl -o ./src/compiled_shaders/circ_shader.rs --slang hlsl5:wgsl:glsl430 -f sokol_rust
+sokol-shdc.exe -i ./src/shaders/line_shader.glsl -o ./src/compiled_shaders/line_shader.rs --slang hlsl5:wgsl:glsl430 -f sokol_rust
 
-cargo %arg1%
+echo. & echo + building project +
+cargo %arg%

@@ -7,11 +7,12 @@ use sokol::gfx;
 use crate::compiled_shaders::circ_shader;
 use crate::compiled_shaders::line_shader;
 use crate::compiled_shaders::tri_shader;
+use crate::state::State;
 
 #[derive(PartialEq, Eq, Hash)]
-pub enum RenderPrimitive {
-    Triangle,
-    Circle,
+pub enum Primative {
+    Tri,
+    Circ,
     Line,
 }
 
@@ -21,13 +22,15 @@ pub struct RenderObject {
 }
 
 pub struct Renderer {
-    pub targets: HashMap<RenderPrimitive, RenderObject>,
+    pub targets: HashMap<Primative, RenderObject>,
     pub bindings: gfx::Bindings,
     pub pipeline: gfx::Pipeline,
     pub pass_action: gfx::PassAction,
 }
 
 impl Renderer {
+    pub fn render(&mut self, world_state: &State) {}
+
     pub fn init_circle(&mut self) {
         #[rustfmt::skip]
         let vertices: [f32; 12] = [
@@ -56,15 +59,13 @@ impl Renderer {
             label: CString::from_str("circle pipeline").unwrap().as_ptr(),
             ..Default::default()
         });
-        self.targets.insert(
-            RenderPrimitive::Circle,
-            RenderObject { pipeline: self.pipeline, bindings: self.bindings },
-        );
+        self.targets
+            .insert(Primative::Circ, RenderObject { pipeline: self.pipeline, bindings: self.bindings });
     }
 
     pub fn init_line(&mut self) {
         self.bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
-            size: size_of::<f32>() * 2048, //can only hold 2048 lines per draw call
+            size: size_of::<f32>() * 2048,
             usage: gfx::Usage::Stream,
             label: CString::from_str("line vertices").unwrap().as_ptr(),
             ..Default::default()
@@ -82,7 +83,7 @@ impl Renderer {
             ..Default::default()
         });
         self.targets
-            .insert(RenderPrimitive::Line, RenderObject { pipeline: self.pipeline, bindings: self.bindings });
+            .insert(Primative::Line, RenderObject { pipeline: self.pipeline, bindings: self.bindings });
     }
 
     pub fn init_triangle(&mut self) {
@@ -111,9 +112,7 @@ impl Renderer {
             label: CString::from_str("triangle pipeline").unwrap().as_ptr(),
             ..Default::default()
         });
-        self.targets.insert(
-            RenderPrimitive::Triangle,
-            RenderObject { pipeline: self.pipeline, bindings: self.bindings },
-        );
+        self.targets
+            .insert(Primative::Tri, RenderObject { pipeline: self.pipeline, bindings: self.bindings });
     }
 }

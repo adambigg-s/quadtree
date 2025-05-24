@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 sokol = { version="*", git="https://github.com/floooh/sokol-rust.git" }
 glam = "0.30.3"
+fastrand = "2.3.0"

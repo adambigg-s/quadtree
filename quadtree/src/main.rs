@@ -16,17 +16,6 @@ use sokol::log as slog;
 use renderer::Renderer;
 use state::State;
 
-struct ApplicationState {
-    renderer: Renderer,
-    state: State,
-}
-
-impl ApplicationState {
-    fn update(&mut self) {
-        self.state.update();
-    }
-}
-
 extern "C" fn init(ptr: *mut c_void) {
     let state = unsafe { &mut *(ptr as *mut ApplicationState) };
 
@@ -46,22 +35,18 @@ extern "C" fn init(ptr: *mut c_void) {
         ..Default::default()
     };
 }
+
 extern "C" fn frame(ptr: *mut c_void) {
     let state = unsafe { &mut *(ptr as *mut ApplicationState) };
 
-    state.update();
+    state.update(sapp::widthf(), sapp::heightf());
 
     gfx::begin_pass(&gfx::Pass {
         action: state.renderer.pass_action,
         swapchain: sgl::swapchain(),
         ..Default::default()
     });
-
-    // gfx::apply_pipeline(target.pipeline);
-    // gfx::apply_bindings(&target.bindings);
-    // gfx::apply_uniforms(circ_shader::UB_V_PARAMS, &gfx::value_as_range(&params));
-    // gfx::draw(0, 6, 1);
-
+    state.renderer.render(&state.state);
     gfx::end_pass();
     gfx::commit();
 }
@@ -83,15 +68,26 @@ extern "C" fn cleanup(ptr: *mut c_void) {
     unsafe { Box::from_raw(&mut *(ptr as *mut ApplicationState)) };
 }
 
+struct ApplicationState {
+    renderer: Renderer,
+    state: State,
+}
+
+impl ApplicationState {
+    fn update(&mut self, width: f32, height: f32) {
+        self.state.update(width, height);
+    }
+}
+
 fn main() {
-    let state = ApplicationState {
+    let mut state = ApplicationState {
         renderer: Renderer {
             targets: HashMap::new(),
             bindings: gfx::Bindings::new(),
             pipeline: gfx::Pipeline::new(),
             pass_action: gfx::PassAction::new(),
         },
-        state: State {},
+        state: State::build(800, 600),
     };
     let state_ptr = Box::into_raw(Box::from(state)) as *mut c_void;
 

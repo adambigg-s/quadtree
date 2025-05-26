@@ -9,18 +9,21 @@ use crate::compiled_shaders::line_shader;
 use crate::compiled_shaders::tri_shader;
 use crate::state::State;
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub enum Primative {
     Tri,
     Circ,
     Line,
 }
 
+#[derive(Debug)]
 pub struct RenderObject {
     pub pipeline: gfx::Pipeline,
     pub bindings: gfx::Bindings,
+    pub draw_elements: usize,
 }
 
+#[derive(Debug)]
 pub struct Renderer {
     pub targets: HashMap<Primative, RenderObject>,
     pub bindings: gfx::Bindings,
@@ -29,7 +32,30 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn render(&mut self, world_state: &State) {}
+    pub fn render(&mut self, world_state: &State) {
+        let Some(target) = self.targets.get(&Primative::Circ)
+        else {
+            panic!("target not initizlied")
+        };
+        gfx::apply_pipeline(target.pipeline);
+        gfx::apply_bindings(&target.bindings);
+        let data = circ_shader::VParamsWorld {
+            world_dims: [world_state.world_dims.x, world_state.world_dims.y],
+            _pad_8: [0; 8],
+        };
+        gfx::apply_uniforms(circ_shader::UB_V_PARAMS_WORLD, &gfx::value_as_range(&data));
+        for particle in &world_state.particles {
+            let data = circ_shader::VParams {
+                color: [1., 1., 1.],
+                _pad_12: [0; 4],
+                center: [particle.pos.x, particle.pos.y],
+                radius: particle.mass,
+                _pad_28: [0; 4],
+            };
+            gfx::apply_uniforms(circ_shader::UB_V_PARAMS, &gfx::value_as_range(&data));
+            gfx::draw(0, target.draw_elements, 1);
+        }
+    }
 
     pub fn init_circle(&mut self) {
         #[rustfmt::skip]
@@ -59,8 +85,10 @@ impl Renderer {
             label: CString::from_str("circle pipeline").unwrap().as_ptr(),
             ..Default::default()
         });
-        self.targets
-            .insert(Primative::Circ, RenderObject { pipeline: self.pipeline, bindings: self.bindings });
+        self.targets.insert(
+            Primative::Circ,
+            RenderObject { pipeline: self.pipeline, bindings: self.bindings, draw_elements: vertices.len() },
+        );
     }
 
     pub fn init_line(&mut self) {
@@ -82,8 +110,10 @@ impl Renderer {
             label: CString::from_str("line pipeline").unwrap().as_ptr(),
             ..Default::default()
         });
-        self.targets
-            .insert(Primative::Line, RenderObject { pipeline: self.pipeline, bindings: self.bindings });
+        self.targets.insert(
+            Primative::Line,
+            RenderObject { pipeline: self.pipeline, bindings: self.bindings, draw_elements: 2048 },
+        );
     }
 
     pub fn init_triangle(&mut self) {
@@ -112,7 +142,9 @@ impl Renderer {
             label: CString::from_str("triangle pipeline").unwrap().as_ptr(),
             ..Default::default()
         });
-        self.targets
-            .insert(Primative::Tri, RenderObject { pipeline: self.pipeline, bindings: self.bindings });
+        self.targets.insert(
+            Primative::Tri,
+            RenderObject { pipeline: self.pipeline, bindings: self.bindings, draw_elements: 3 },
+        );
     }
 }

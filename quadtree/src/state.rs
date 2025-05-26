@@ -1,19 +1,28 @@
 use glam::Vec2;
 
-struct Particle {
-    pos: Vec2,
-    vel: Vec2,
+use crate::utils::random_vec2;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Particle {
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub mass: f32,
 }
 
 impl Particle {
-    pub fn new() -> Self {
-        Particle { pos: random_vec2(), vel: random_vec2() }
+    pub fn new(dims: Vec2, mass: f32) -> Self {
+        Particle { pos: random_vec2(dims), vel: random_vec2(Vec2::new(0.1, 0.1)), mass }
+    }
+
+    pub fn update(&mut self) {
+        self.pos += self.vel;
     }
 }
 
+#[derive(Debug)]
 pub struct State {
-    world_dims: Vec2,
-    particles: Vec<Particle>,
+    pub world_dims: Vec2,
+    pub particles: Vec<Particle>,
 }
 
 impl State {
@@ -24,13 +33,33 @@ impl State {
     pub fn update(&mut self, width: f32, height: f32) {
         self.world_dims.x = width;
         self.world_dims.y = height;
+
+        for particle in &mut self.particles {
+            particle.update();
+        }
+
+        const G: f32 = 0.1;
+
+        for i in 0..self.particles.len() {
+            for j in 0..self.particles.len() {
+                if i == j {
+                    continue;
+                }
+
+                let other = self.particles[j];
+                let target = &mut self.particles[i];
+
+                let pointing = other.pos - target.pos;
+                let r2 = pointing.length_squared().max(1.);
+
+                let force = G * target.mass * other.mass / r2;
+
+                target.vel += pointing.normalize() * force;
+            }
+        }
     }
 
-    pub fn add_particle(&mut self) {
-        self.particles.push(Particle::new());
+    pub fn add_particle(&mut self, mass: f32) {
+        self.particles.push(Particle::new(self.world_dims, mass));
     }
-}
-
-pub fn random_vec2() -> Vec2 {
-    Vec2::new(fastrand::f32(), fastrand::f32())
 }

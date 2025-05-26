@@ -95,8 +95,8 @@ fn main() {
         },
         state: State::build(800, 600),
     };
-    for _ in 0..100 {
-        state.state.add_particle(3.);
+    for _ in 0..10 {
+        state.state.add_particle(10.);
         let random = random_vec2(Vec2::new(20., 20.));
         println!("vec generated: {}", random);
     }

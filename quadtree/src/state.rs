@@ -11,7 +11,7 @@ pub struct Particle {
 
 impl Particle {
     pub fn new(dims: Vec2, mass: f32) -> Self {
-        Particle { pos: random_vec2(dims), vel: random_vec2(Vec2::new(0.1, 0.1)), mass }
+        Particle { pos: random_vec2(dims), vel: random_vec2(Vec2::new(2., 2.)) - Vec2::new(1., 1.), mass }
     }
 
     pub fn update(&mut self) {
@@ -31,14 +31,13 @@ impl State {
     }
 
     pub fn update(&mut self, width: f32, height: f32) {
-        self.world_dims.x = width;
-        self.world_dims.y = height;
+        self.world_dims = Vec2::new(width, height);
 
         for particle in &mut self.particles {
             particle.update();
         }
 
-        const G: f32 = 0.1;
+        const G: f32 = 1.;
 
         for i in 0..self.particles.len() {
             for j in 0..self.particles.len() {
@@ -50,11 +49,26 @@ impl State {
                 let target = &mut self.particles[i];
 
                 let pointing = other.pos - target.pos;
-                let r2 = pointing.length_squared().max(1.);
+                let r2 = pointing.length_squared().max(5.);
 
                 let force = G * target.mass * other.mass / r2;
 
                 target.vel += pointing.normalize() * force;
+            }
+        }
+
+        for particle in &mut self.particles {
+            if particle.pos.x > self.world_dims.x {
+                particle.vel.x *= -1.;
+            }
+            if particle.pos.x < 0. {
+                particle.vel.x *= -1.;
+            }
+            if particle.pos.y > self.world_dims.y {
+                particle.vel.y *= -1.;
+            }
+            if particle.pos.y < 0. {
+                particle.vel.y *= -1.;
             }
         }
     }

@@ -9,13 +9,17 @@ use crate::compiled_shaders::line_shader;
 use crate::compiled_shaders::tri_shader;
 use crate::state::State;
 
+#[allow(dead_code)]
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub enum RenderPrimitive {
     Tri,
     Circ,
     Line,
+    Mesh,
+    EnumLength,
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct RenderObject {
     pub pipeline: gfx::Pipeline,
@@ -23,15 +27,30 @@ pub struct RenderObject {
     pub draw_elements: usize,
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct PrimitiveRenderer {
     pub render_targets: HashMap<RenderPrimitive, RenderObject>,
-    pub pipeline: gfx::Pipeline,
-    pub bindings: gfx::Bindings,
-    pub pass_action: gfx::PassAction,
+    pub set_pipeline: gfx::Pipeline,
+    pub set_bindings: gfx::Bindings,
+    pub set_pass_action: gfx::PassAction,
 }
 
 impl PrimitiveRenderer {
+    pub fn init_primitives(&mut self) {
+        self.init_triangle();
+        self.init_circle();
+        self.init_line();
+    }
+
+    pub fn init_pass_action(&mut self) {
+        self.set_pass_action.colors[0] = gfx::ColorAttachmentAction {
+            load_action: gfx::LoadAction::Clear,
+            clear_value: gfx::Color { r: 0.2, g: 0.2, b: 0.4, a: 1. },
+            ..Default::default()
+        };
+    }
+
     pub fn render(&mut self, world_state: &State) {
         let Some(target) = self.render_targets.get(&RenderPrimitive::Circ)
         else {
@@ -48,7 +67,7 @@ impl PrimitiveRenderer {
             let data = circ_shader::VParams {
                 color: [1., 1., 1.],
                 _pad_12: [0; 4],
-                center: [particle.p.x, particle.p.y],
+                center: [particle.position.x, particle.position.y],
                 radius: particle.mass,
                 _pad_28: [0; 4],
             };
@@ -57,13 +76,7 @@ impl PrimitiveRenderer {
         }
     }
 
-    pub fn init_primitives(&mut self) {
-        self.init_triangle();
-        self.init_circle();
-        self.init_line();
-    }
-
-    pub fn init_circle(&mut self) {
+    fn init_circle(&mut self) {
         #[rustfmt::skip]
         let vertices: [f32; 12] = [
             -1.0, -1.0,
@@ -73,14 +86,14 @@ impl PrimitiveRenderer {
             -1.0,  1.0,
             -1.0, -1.0
         ];
-        self.bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
+        self.set_bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
             size: size_of::<f32>() * vertices.len(),
             usage: gfx::Usage::Immutable,
             data: gfx::slice_as_range(&vertices),
             label: CString::from_str("circle vertices").unwrap().as_ptr(),
             ..Default::default()
         });
-        self.pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
+        self.set_pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
             shader: gfx::make_shader(&circ_shader::circle_shader_desc(gfx::query_backend())),
             layout: {
                 let mut layout = gfx::VertexLayoutState::new();
@@ -93,18 +106,18 @@ impl PrimitiveRenderer {
         });
         self.render_targets.insert(
             RenderPrimitive::Circ,
-            RenderObject { pipeline: self.pipeline, bindings: self.bindings, draw_elements: vertices.len() },
+            RenderObject { pipeline: self.set_pipeline, bindings: self.set_bindings, draw_elements: 6 },
         );
     }
 
-    pub fn init_line(&mut self) {
-        self.bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
+    fn init_line(&mut self) {
+        self.set_bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
             size: size_of::<f32>() * 2048,
             usage: gfx::Usage::Stream,
             label: CString::from_str("line vertices").unwrap().as_ptr(),
             ..Default::default()
         });
-        self.pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
+        self.set_pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
             shader: gfx::make_shader(&line_shader::line_shader_desc(gfx::query_backend())),
             layout: {
                 let mut layout = gfx::VertexLayoutState::new();
@@ -118,25 +131,25 @@ impl PrimitiveRenderer {
         });
         self.render_targets.insert(
             RenderPrimitive::Line,
-            RenderObject { pipeline: self.pipeline, bindings: self.bindings, draw_elements: 2048 },
+            RenderObject { pipeline: self.set_pipeline, bindings: self.set_bindings, draw_elements: 2048 },
         );
     }
 
-    pub fn init_triangle(&mut self) {
+    fn init_triangle(&mut self) {
         #[rustfmt::skip]
         let vertices: [f32; 15] = [
             -0.5, -0.5,   1.0, 0.7, 0.0,
              0.5, -0.5,   0.0, 1.0, 0.7,
              0.0,  0.5,   0.7, 0.0, 1.0,
         ];
-        self.bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
+        self.set_bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
             size: size_of::<f32>() * vertices.len(),
             usage: gfx::Usage::Immutable,
             data: gfx::slice_as_range(&vertices),
             label: CString::from_str("triangle vertices").unwrap().as_ptr(),
             ..Default::default()
         });
-        self.pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
+        self.set_pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
             shader: gfx::make_shader(&tri_shader::simple_shader_desc(gfx::query_backend())),
             layout: {
                 let mut layout = gfx::VertexLayoutState::new();
@@ -150,7 +163,7 @@ impl PrimitiveRenderer {
         });
         self.render_targets.insert(
             RenderPrimitive::Tri,
-            RenderObject { pipeline: self.pipeline, bindings: self.bindings, draw_elements: 3 },
+            RenderObject { pipeline: self.set_pipeline, bindings: self.set_bindings, draw_elements: 3 },
         );
     }
 }

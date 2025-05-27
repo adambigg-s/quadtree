@@ -20,6 +20,8 @@ use state::State;
 extern "C" fn init(ptr: *mut c_void) {
     let state = unsafe { &mut *(ptr as *mut ApplicationState) };
 
+    state.state.init();
+
     gfx::setup(&gfx::Desc {
         environment: sgl::environment(),
         logger: gfx::Logger { func: Some(slog::slog_func), user_data: ptr },
@@ -27,21 +29,16 @@ extern "C" fn init(ptr: *mut c_void) {
     });
 
     state.renderer.init_primitives();
-
-    state.renderer.pass_action.colors[0] = gfx::ColorAttachmentAction {
-        load_action: gfx::LoadAction::Clear,
-        clear_value: gfx::Color { r: 0.2, g: 0.2, b: 0.4, a: 1. },
-        ..Default::default()
-    };
+    state.renderer.init_pass_action();
 }
 
 extern "C" fn frame(ptr: *mut c_void) {
     let state = unsafe { &mut *(ptr as *mut ApplicationState) };
 
-    state.update(sapp::widthf(), sapp::heightf());
+    state.update();
 
     gfx::begin_pass(&gfx::Pass {
-        action: state.renderer.pass_action,
+        action: state.renderer.set_pass_action,
         swapchain: sgl::swapchain(),
         ..Default::default()
     });
@@ -51,17 +48,21 @@ extern "C" fn frame(ptr: *mut c_void) {
 }
 
 extern "C" fn event(event: *const sapp::Event, ptr: *mut c_void) {
-    let (_, event) = unsafe { (&mut *(ptr as *mut ApplicationState), *event) };
+    let (state, event) = unsafe { (&mut *(ptr as *mut ApplicationState), *event) };
 
     if event.key_code == sapp::Keycode::Escape {
         sapp::request_quit();
+    }
+    if event._type == sapp::EventType::Resized {
+        state.state.update_dimensions(sapp::widthf(), sapp::heightf());
     }
 }
 
 #[allow(unused_must_use)]
 extern "C" fn cleanup(ptr: *mut c_void) {
+    /* this can be used for debugging to print the full state upon shutdown
     let state = unsafe { &mut *(ptr as *mut ApplicationState) };
-    println!("full state: {:?}", state);
+    println!("full state: {:?}", state); */
 
     gfx::shutdown();
     if ptr.is_null() {
@@ -70,31 +71,29 @@ extern "C" fn cleanup(ptr: *mut c_void) {
     unsafe { Box::from_raw(&mut *(ptr as *mut ApplicationState)) };
 }
 
+#[repr(C)]
 #[derive(Debug)]
-struct ApplicationState<'d> {
+struct ApplicationState {
     renderer: PrimitiveRenderer,
-    state: State<'d>,
+    state: State,
 }
 
-impl<'d> ApplicationState<'d> {
-    fn update(&mut self, width: f32, height: f32) {
-        self.state.update(width, height);
+impl ApplicationState {
+    fn update(&mut self) {
+        self.state.update();
     }
 }
 
 fn main() {
-    let mut state = ApplicationState {
+    let state = ApplicationState {
         renderer: PrimitiveRenderer {
             render_targets: HashMap::new(),
-            bindings: gfx::Bindings::new(),
-            pipeline: gfx::Pipeline::new(),
-            pass_action: gfx::PassAction::new(),
+            set_bindings: gfx::Bindings::new(),
+            set_pipeline: gfx::Pipeline::new(),
+            set_pass_action: gfx::PassAction::new(),
         },
         state: State::build(800, 600),
     };
-    (0..1000).for_each(|_| {
-        state.state.add_particle(3.);
-    });
 
     let state_ptr = Box::into_raw(Box::from(state)) as *mut c_void;
     sapp::run(&sapp::Desc {

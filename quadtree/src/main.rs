@@ -9,15 +9,13 @@ use std::ffi::c_void;
 use std::ffi::CString;
 use std::str::FromStr;
 
-use glam::Vec2;
 use sokol::app as sapp;
 use sokol::gfx;
 use sokol::glue as sgl;
 use sokol::log as slog;
 
-use renderer::Renderer;
+use renderer::PrimitiveRenderer;
 use state::State;
-use utils::random_vec2;
 
 extern "C" fn init(ptr: *mut c_void) {
     let state = unsafe { &mut *(ptr as *mut ApplicationState) };
@@ -28,9 +26,7 @@ extern "C" fn init(ptr: *mut c_void) {
         ..Default::default()
     });
 
-    state.renderer.init_triangle();
-    state.renderer.init_line();
-    state.renderer.init_circle();
+    state.renderer.init_primitives();
 
     state.renderer.pass_action.colors[0] = gfx::ColorAttachmentAction {
         load_action: gfx::LoadAction::Clear,
@@ -55,7 +51,7 @@ extern "C" fn frame(ptr: *mut c_void) {
 }
 
 extern "C" fn event(event: *const sapp::Event, ptr: *mut c_void) {
-    let (_state, event) = unsafe { (&mut *(ptr as *mut ApplicationState), *event) };
+    let (_, event) = unsafe { (&mut *(ptr as *mut ApplicationState), *event) };
 
     if event.key_code == sapp::Keycode::Escape {
         sapp::request_quit();
@@ -64,18 +60,19 @@ extern "C" fn event(event: *const sapp::Event, ptr: *mut c_void) {
 
 #[allow(unused_must_use)]
 extern "C" fn cleanup(ptr: *mut c_void) {
+    let state = unsafe { &mut *(ptr as *mut ApplicationState) };
+    println!("full state: {:?}", state);
+
     gfx::shutdown();
     if ptr.is_null() {
         return;
     }
-    let state = unsafe { &mut *(ptr as *mut ApplicationState) };
-    println!("full state: {:?}", state);
     unsafe { Box::from_raw(&mut *(ptr as *mut ApplicationState)) };
 }
 
 #[derive(Debug)]
 struct ApplicationState {
-    renderer: Renderer,
+    renderer: PrimitiveRenderer,
     state: State,
 }
 
@@ -87,21 +84,19 @@ impl ApplicationState {
 
 fn main() {
     let mut state = ApplicationState {
-        renderer: Renderer {
-            targets: HashMap::new(),
+        renderer: PrimitiveRenderer {
+            render_targets: HashMap::new(),
             bindings: gfx::Bindings::new(),
             pipeline: gfx::Pipeline::new(),
             pass_action: gfx::PassAction::new(),
         },
         state: State::build(800, 600),
     };
-    for _ in 0..10 {
-        state.state.add_particle(10.);
-        let random = random_vec2(Vec2::new(20., 20.));
-        println!("vec generated: {}", random);
-    }
-    let state_ptr = Box::into_raw(Box::from(state)) as *mut c_void;
+    (0..1000).for_each(|_| {
+        state.state.add_particle(3.);
+    });
 
+    let state_ptr = Box::into_raw(Box::from(state)) as *mut c_void;
     sapp::run(&sapp::Desc {
         user_data: state_ptr,
         init_userdata_cb: Some(init),

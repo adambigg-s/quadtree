@@ -2,9 +2,10 @@ use glam::Vec2;
 
 use crate::state::Particle;
 
+#[derive(Debug)]
 pub struct Rectangle {
-    min: Vec2,
-    max: Vec2,
+    pub min: Vec2,
+    pub max: Vec2,
 }
 
 impl Rectangle {
@@ -24,32 +25,39 @@ impl Rectangle {
     }
 }
 
+#[derive(Debug)]
 pub struct TreeNode {
-    children: Option<[usize; 4]>,
-    bounds: Rectangle,
-    data: Vec<usize>,
+    pub children: Option<[usize; 4]>,
+    pub bounds: Rectangle,
+    pub data: Vec<usize>,
 }
 
-impl TreeNode {}
+impl TreeNode {
+    pub fn build(bounds: Rectangle) -> Self {
+        TreeNode { children: None, bounds, data: Vec::new() }
+    }
+}
 
+#[derive(Debug)]
 pub struct QuadTreeWrap<'d, T> {
-    data: &'d Vec<T>,
-    nodes: Vec<TreeNode>,
-    capacity: usize,
-    head_node: TreeNode,
+    // pub data: Option<&'d Vec<T>>,
+    pub data: Option<&'d [T]>,
+    pub nodes: Vec<TreeNode>,
+    pub capacity: usize,
+    pub head_node: TreeNode,
 }
 
 impl<'d> QuadTreeWrap<'d, Particle> {
-    pub fn build(data: &Vec<Particle>, capacity: usize, bounds: Rectangle) -> QuadTreeWrap<Particle> {
+    pub fn build(capacity: usize, bounds: Rectangle) -> QuadTreeWrap<'d, Particle> {
         QuadTreeWrap {
-            data: data,
+            data: None,
             nodes: Vec::new(),
-            capacity: capacity,
-            head_node: TreeNode { children: None, bounds: bounds, data: Vec::new() },
+            capacity,
+            head_node: TreeNode { children: None, bounds, data: Vec::new() },
         }
     }
 
-    pub fn init_tree(&mut self) {
-        for particle in self.data {}
+    pub fn init_tree(&mut self, data: &'d [Particle]) {
+        self.data = Some(data);
     }
 }

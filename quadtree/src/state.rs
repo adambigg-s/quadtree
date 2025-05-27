@@ -1,6 +1,9 @@
 use glam::Vec2;
 
-use crate::utils::random_vec2;
+use crate::{
+    quadtree::{QuadTreeWrap, Rectangle, TreeNode},
+    utils::random_vec2,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Particle {
@@ -33,18 +36,28 @@ impl Particle {
 }
 
 #[derive(Debug)]
-pub struct State {
+pub struct State<'d> {
     pub dimensions: Vec2,
     pub particles: Vec<Particle>,
+    pub tree: QuadTreeWrap<'d, Particle>,
 }
 
-impl State {
+impl<'d> State<'d> {
     pub fn build(width: i32, height: i32) -> Self {
-        State { dimensions: Vec2::new(width as f32, height as f32), particles: Vec::new() }
+        State {
+            dimensions: Vec2::new(width as f32, height as f32),
+            particles: Vec::new(),
+            tree: QuadTreeWrap::build(
+                2,
+                Rectangle::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
+            ),
+        }
     }
 
     pub fn update(&mut self, width: f32, height: f32) {
         self.dimensions = Vec2::new(width, height);
+
+        self.tree.init_tree(&self.particles);
 
         for particle in &mut self.particles {
             particle.update();

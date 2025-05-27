@@ -71,12 +71,12 @@ extern "C" fn cleanup(ptr: *mut c_void) {
 }
 
 #[derive(Debug)]
-struct ApplicationState {
+struct ApplicationState<'d> {
     renderer: PrimitiveRenderer,
-    state: State,
+    state: State<'d>,
 }
 
-impl ApplicationState {
+impl<'d> ApplicationState<'d> {
     fn update(&mut self, width: f32, height: f32) {
         self.state.update(width, height);
     }

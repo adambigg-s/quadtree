@@ -51,7 +51,7 @@ impl PrimitiveRenderer {
         };
     }
 
-    pub fn render(&mut self, world_state: &State) {
+    pub fn render(&mut self, state: &State) {
         let Some(target) = self.render_targets.get(&RenderPrimitive::Circ)
         else {
             panic!("target not initizlied")
@@ -59,11 +59,11 @@ impl PrimitiveRenderer {
         gfx::apply_pipeline(target.pipeline);
         gfx::apply_bindings(&target.bindings);
         let data = circ_shader::VParamsWorld {
-            world_dims: [world_state.dimensions.x, world_state.dimensions.y],
+            world_dims: [state.dimensions.width(), state.dimensions.height()],
             _pad_8: [0; 8],
         };
         gfx::apply_uniforms(circ_shader::UB_V_PARAMS_WORLD, &gfx::value_as_range(&data));
-        for particle in &world_state.particles {
+        for particle in &state.particles {
             let data = circ_shader::VParams {
                 color: [1., 1., 1.],
                 _pad_12: [0; 4],

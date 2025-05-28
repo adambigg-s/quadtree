@@ -80,7 +80,7 @@ struct ApplicationState {
 
 impl ApplicationState {
     fn update(&mut self) {
-        self.state.update();
+        self.state.update(0.01);
     }
 }
 

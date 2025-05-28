@@ -3,16 +3,16 @@ use crate::utils::BoundingBox;
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct QuadTree {
+pub struct QuadTreeOwner {
     pub points: Vec<Particle>,
-    pub children: Option<[Box<QuadTree>; 4]>,
+    pub children: Option<[Box<QuadTreeOwner>; 4]>,
     pub capacity: usize,
     pub bounds: BoundingBox,
 }
 
-impl QuadTree {
+impl QuadTreeOwner {
     pub fn build(capacity: usize, bounds: BoundingBox) -> Self {
-        QuadTree { points: Vec::new(), children: None, capacity, bounds }
+        QuadTreeOwner { points: Vec::new(), children: None, capacity, bounds }
     }
 
     pub fn init_tree(&mut self, particles: &[Particle]) {
@@ -27,14 +27,12 @@ impl QuadTree {
             return;
         }
 
-        if self.points.len() < self.capacity {
+        if self.points.len() < self.capacity && self.children.is_none() {
             self.points.push(*particle);
             return;
         }
 
-        if self.children.is_none() {
-            self.subdivide();
-        }
+        self.subdivide();
 
         if let Some(children) = &mut self.children {
             children.iter_mut().for_each(|child| {
@@ -70,10 +68,10 @@ impl QuadTree {
     fn subdivide(&mut self) {
         let quads = self.bounds.split_quadrants();
         self.children = Some([
-            Box::new(QuadTree::build(self.capacity, quads[0])),
-            Box::new(QuadTree::build(self.capacity, quads[1])),
-            Box::new(QuadTree::build(self.capacity, quads[2])),
-            Box::new(QuadTree::build(self.capacity, quads[3])),
+            Box::new(QuadTreeOwner::build(self.capacity, quads[0])),
+            Box::new(QuadTreeOwner::build(self.capacity, quads[1])),
+            Box::new(QuadTreeOwner::build(self.capacity, quads[2])),
+            Box::new(QuadTreeOwner::build(self.capacity, quads[3])),
         ]);
         for particle in &self.points {
             if let Some(children) = &mut self.children {
@@ -89,5 +87,52 @@ impl QuadTree {
     fn clear_tree(&mut self) {
         self.points.clear();
         self.children = None;
+    }
+}
+
+pub struct QuadTreeNode {
+    pub bounds: BoundingBox,
+    pub children: Option<[usize; 4]>,
+    pub data: Vec<usize>,
+}
+
+impl QuadTreeNode {
+    pub fn build(bounds: BoundingBox) -> Self {
+        QuadTreeNode { bounds, children: None, data: Vec::with_capacity(5) }
+    }
+}
+
+pub struct QuadTreeIndex {
+    pub nodes: Vec<QuadTreeNode>,
+    pub capacity: usize,
+}
+
+impl QuadTreeIndex {
+    pub fn build(capacity: usize, bounds: BoundingBox) -> Self {
+        let head = QuadTreeNode::build(bounds);
+        QuadTreeIndex { nodes: vec![head], capacity }
+    }
+
+    pub fn init_tree(&mut self, particles: &[Particle]) {
+        self.clear_tree();
+        for (idx, particle) in particles.iter().enumerate() {
+            self.insert_node(idx, particle);
+        }
+    }
+
+    fn insert_node(&mut self, idx: usize, particle: &Particle) {
+        let mut curr_node = &mut self.nodes[0];
+        if !curr_node.bounds.contains(particle.position) {
+            return;
+        }
+        if curr_node.data.len() < self.capacity {
+            curr_node.data.push(idx);
+        }
+    }
+
+    fn subdivide(&mut self) {}
+
+    fn clear_tree(&mut self) {
+        self.nodes.truncate(1);
     }
 }

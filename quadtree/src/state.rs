@@ -1,6 +1,6 @@
 use glam::Vec2;
 
-use crate::quadtree::QuadTree;
+use crate::quadtree::QuadTreeOwner;
 use crate::utils::random_vec2;
 use crate::utils::BoundingBox;
 
@@ -39,7 +39,7 @@ pub struct State {
     pub dimensions: BoundingBox,
     pub particles: Vec<Particle>,
 
-    pub tree: QuadTree,
+    pub tree: QuadTreeOwner,
 }
 
 impl State {
@@ -47,12 +47,15 @@ impl State {
         State {
             dimensions: BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             particles: Vec::new(),
-            tree: QuadTree::build(1, BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32))),
+            tree: QuadTreeOwner::build(
+                10,
+                BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
+            ),
         }
     }
 
     pub fn init(&mut self) {
-        (0..1).for_each(|_| {
+        (0..100).for_each(|_| {
             self.add_random_particle();
         });
     }
@@ -75,7 +78,7 @@ impl State {
                 vec *= 300.;
                 vec
             },
-            mass: fastrand::f32() * 10.,
+            mass: fastrand::f32() * 4.,
         });
     }
 
@@ -83,7 +86,7 @@ impl State {
         self.tree.init_tree(&self.particles);
     }
 
-    pub fn query_tree(tree: &QuadTree, pos: Vec2, radius: f32) -> Vec<Particle> {
+    pub fn query_tree(tree: &QuadTreeOwner, pos: Vec2, radius: f32) -> Vec<Particle> {
         tree.query_range(&BoundingBox::build(pos - Vec2::splat(radius), pos + Vec2::splat(radius)))
     }
 
@@ -93,7 +96,7 @@ impl State {
         let grav: f32 = 30000.;
         self.init_tree();
         for target in &mut self.particles {
-            let neighbors = Self::query_tree(&self.tree, target.position, 150.);
+            let neighbors = Self::query_tree(&self.tree, target.position, 500.);
             for other in neighbors {
                 let pointing = other.position - target.position;
 

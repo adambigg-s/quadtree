@@ -9,12 +9,14 @@ use std::ffi::c_void;
 use std::ffi::CString;
 use std::str::FromStr;
 
+use glam::Vec2;
 use sokol::app as sapp;
 use sokol::gfx;
 use sokol::glue as sgl;
 use sokol::log as slog;
 
 use renderer::PrimitiveRenderer;
+use state::Particle;
 use state::State;
 
 extern "C" fn init(ptr: *mut c_void) {
@@ -56,14 +58,20 @@ extern "C" fn event(event: *const sapp::Event, ptr: *mut c_void) {
     if event._type == sapp::EventType::Resized {
         state.state.update_dimensions(sapp::widthf(), sapp::heightf());
     }
+    if event.mouse_button == sapp::Mousebutton::Left {
+        state.state.particles.push(Particle {
+            position: {
+                let (mx, my) = (event.mouse_x, sapp::heightf() - event.mouse_y);
+                Vec2::new(mx, my)
+            },
+            velocity: Vec2::ZERO,
+            mass: 3.,
+        });
+    }
 }
 
 #[allow(unused_must_use)]
 extern "C" fn cleanup(ptr: *mut c_void) {
-    /* this can be used for debugging to print the full state upon shutdown
-    let state = unsafe { &mut *(ptr as *mut ApplicationState) };
-    println!("full state: {:?}", state); */
-
     gfx::shutdown();
     if ptr.is_null() {
         return;

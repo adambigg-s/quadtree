@@ -37,15 +37,13 @@ impl QuadTree {
         }
 
         if let Some(children) = &mut self.children {
-            let [i, ii, iii, iv] = children;
-            i.insert(particle);
-            ii.insert(particle);
-            iii.insert(particle);
-            iv.insert(particle);
+            children.iter_mut().for_each(|child| {
+                child.insert(particle);
+            });
         }
     }
 
-    pub fn query_range(&mut self, range: &BoundingBox) -> Vec<Particle> {
+    pub fn query_range(&self, range: &BoundingBox) -> Vec<Particle> {
         let mut output = Vec::new();
         self.recursive_search(range, &mut output);
         output
@@ -55,15 +53,17 @@ impl QuadTree {
         if !self.bounds.overlaps(range) {
             return;
         }
-        if let Some(children) = &self.children {
-            let [i, ii, iii, iv] = children;
-            i.recursive_search(range, outputs);
-            ii.recursive_search(range, outputs);
-            iii.recursive_search(range, outputs);
-            iv.recursive_search(range, outputs);
+
+        for particle in &self.points {
+            if range.contains(particle.position) {
+                outputs.push(*particle);
+            }
         }
-        else {
-            self.points.iter().for_each(|particle| outputs.push(*particle));
+
+        if let Some(children) = &self.children {
+            for child in children.iter() {
+                child.recursive_search(range, outputs);
+            }
         }
     }
 
@@ -75,6 +75,15 @@ impl QuadTree {
             Box::new(QuadTree::build(self.capacity, quads[2])),
             Box::new(QuadTree::build(self.capacity, quads[3])),
         ]);
+        for particle in &self.points {
+            if let Some(children) = &mut self.children {
+                for child in children.iter_mut() {
+                    child.insert(particle);
+                }
+            }
+        }
+
+        self.points.clear();
     }
 
     fn clear_tree(&mut self) {

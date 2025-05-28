@@ -58,22 +58,40 @@ impl PrimitiveRenderer {
         };
         gfx::apply_pipeline(target.pipeline);
         gfx::apply_bindings(&target.bindings);
-        let data = circ_shader::VParamsWorld {
-            world_dims: [state.dimensions.width(), state.dimensions.height()],
-            _pad_8: [0; 8],
-        };
-        gfx::apply_uniforms(circ_shader::UB_V_PARAMS_WORLD, &gfx::value_as_range(&data));
-        for particle in &state.particles {
-            let data = circ_shader::VParams {
-                color: [1., 1., 1.],
-                _pad_12: [0; 4],
-                center: [particle.position.x, particle.position.y],
-                radius: particle.mass,
-                _pad_28: [0; 4],
-            };
-            gfx::apply_uniforms(circ_shader::UB_V_PARAMS, &gfx::value_as_range(&data));
+        gfx::apply_uniforms(
+            circ_shader::UB_V_PARAMS_WORLD,
+            &gfx::value_as_range(&circ_shader::VParamsWorld {
+                world_dims: [state.dimensions.width(), state.dimensions.height()],
+                _pad_8: [0; 8],
+            }),
+        );
+        state.particles.iter().for_each(|particle| {
+            gfx::apply_uniforms(
+                circ_shader::UB_V_PARAMS,
+                &gfx::value_as_range(&circ_shader::VParams {
+                    color: [1., 1., 1.],
+                    _pad_12: [0; 4],
+                    center: [particle.position.x, particle.position.y],
+                    radius: particle.mass,
+                    _pad_28: [0; 4],
+                }),
+            );
             gfx::draw(0, target.draw_elements, 1);
-        }
+        });
+
+        let Some(target) = self.render_targets.get(&RenderPrimitive::Line)
+        else {
+            panic!("target not initialized")
+        };
+        gfx::apply_pipeline(target.pipeline);
+        gfx::apply_bindings(&target.bindings);
+        gfx::apply_uniforms(
+            line_shader::UB_V_PARAMS_WORLD,
+            &gfx::value_as_range(&line_shader::VParamsWorld {
+                world_dims: [state.dimensions.width(), state.dimensions.height()],
+                _pad_8: [0; 8],
+            }),
+        );
     }
 
     fn init_circle(&mut self) {

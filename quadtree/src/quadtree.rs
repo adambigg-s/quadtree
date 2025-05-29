@@ -90,6 +90,7 @@ impl QuadTreeOwner {
     }
 }
 
+#[derive(Debug)]
 pub struct QuadTreeNode {
     pub bounds: BoundingBox,
     pub children: Option<[usize; 4]>,
@@ -102,12 +103,15 @@ impl QuadTreeNode {
     }
 }
 
+#[derive(Debug)]
 pub struct QuadTreeIndex {
     pub nodes: Vec<QuadTreeNode>,
     pub capacity: usize,
 }
 
 impl QuadTreeIndex {
+    const HEAD_INDEX: usize = 0;
+
     pub fn build(capacity: usize, bounds: BoundingBox) -> Self {
         let head = QuadTreeNode::build(bounds);
         QuadTreeIndex { nodes: vec![head], capacity }
@@ -116,21 +120,38 @@ impl QuadTreeIndex {
     pub fn init_tree(&mut self, particles: &[Particle]) {
         self.clear_tree();
         for (idx, particle) in particles.iter().enumerate() {
-            self.insert_node(idx, particle);
+            self.insert_node(Self::HEAD_INDEX, idx, particle);
         }
     }
 
-    fn insert_node(&mut self, idx: usize, particle: &Particle) {
-        let mut curr_node = &mut self.nodes[0];
+    fn insert_node(&mut self, node_index: usize, idx: usize, particle: &Particle) {
+        let curr_node = &mut self.nodes[node_index];
         if !curr_node.bounds.contains(particle.position) {
             return;
         }
-        if curr_node.data.len() < self.capacity {
+        if curr_node.data.len() < self.capacity && curr_node.children.is_none() {
             curr_node.data.push(idx);
+            return;
+        }
+
+        self.subdivide(node_index);
+
+        if let Some(children) = self.nodes[node_index].children {
+            for child in children {
+                self.insert_node(child, idx, particle);
+            }
         }
     }
 
-    fn subdivide(&mut self) {}
+    fn subdivide(&mut self, node_index: usize) {
+        let quads = self.nodes[node_index].bounds.split_quadrants();
+        self.nodes[node_index].children =
+            Some([node_index + 1, node_index + 2, node_index + 3, node_index + 4]);
+        self.nodes.push(QuadTreeNode::build(quads[0]));
+        self.nodes.push(QuadTreeNode::build(quads[1]));
+        self.nodes.push(QuadTreeNode::build(quads[2]));
+        self.nodes.push(QuadTreeNode::build(quads[3]));
+    }
 
     fn clear_tree(&mut self) {
         self.nodes.truncate(1);

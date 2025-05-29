@@ -1,5 +1,6 @@
 use glam::Vec2;
 
+use crate::quadtree::QuadTreeIndex;
 use crate::quadtree::QuadTreeOwner;
 use crate::utils::random_vec2;
 use crate::utils::BoundingBox;
@@ -40,6 +41,7 @@ pub struct State {
     pub particles: Vec<Particle>,
 
     pub tree: QuadTreeOwner,
+    pub tree_index: QuadTreeIndex,
 }
 
 impl State {
@@ -51,11 +53,15 @@ impl State {
                 10,
                 BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             ),
+            tree_index: QuadTreeIndex::build(
+                4,
+                BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
+            ),
         }
     }
 
     pub fn init(&mut self) {
-        (0..100).for_each(|_| {
+        (0..10000).for_each(|_| {
             self.add_random_particle();
         });
     }
@@ -84,6 +90,7 @@ impl State {
 
     pub fn init_tree(&mut self) {
         self.tree.init_tree(&self.particles);
+        self.tree_index.init_tree(&self.particles);
     }
 
     pub fn query_tree(tree: &QuadTreeOwner, pos: Vec2, radius: f32) -> Vec<Particle> {

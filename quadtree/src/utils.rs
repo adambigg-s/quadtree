@@ -67,3 +67,7 @@ impl Clock {
 pub fn random_vec2() -> Vec2 {
     Vec2::new(fastrand::f32(), fastrand::f32())
 }
+
+pub fn wait(time_ms: u64) {
+    std::thread::sleep(std::time::Duration::from_millis(time_ms));
+}

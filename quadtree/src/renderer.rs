@@ -62,7 +62,7 @@ impl PrimitiveRenderer {
     put inside state or pulled into another renderer but it keeps this specific
     application more organized */
     pub fn render(&mut self, state: &State) {
-        {
+        'lines: {
             let Some(target) = self.render_targets.get(&RenderPrimitive::Line)
             else {
                 panic!("triangle primitive not initialized")
@@ -78,6 +78,9 @@ impl PrimitiveRenderer {
             );
             let mut instances = Vec::new();
             quad_centers(&state.tree, &mut instances);
+            if instances.is_empty() {
+                break 'lines;
+            }
             gfx::update_buffer(target.bindings.vertex_buffers[0], &gfx::slice_as_range(&instances));
             gfx::draw(0, instances.len() / target.draw_elements, 1);
 
@@ -99,7 +102,7 @@ impl PrimitiveRenderer {
                 }
             }
         }
-        {
+        'circles: {
             let Some(target) = self.render_targets.get(&RenderPrimitive::Circ)
             else {
                 panic!("circle target not initizlied")
@@ -119,6 +122,9 @@ impl PrimitiveRenderer {
                 instances.extend_from_slice(&[particle.position.x, particle.position.y, particle.mass]);
                 instances.extend_from_slice(&color);
             });
+            if instances.is_empty() {
+                break 'circles;
+            }
             gfx::update_buffer(target.bindings.vertex_buffers[1], &gfx::slice_as_range(&instances));
             gfx::draw(0, target.draw_elements, instances.len() / target.draw_elements);
         }

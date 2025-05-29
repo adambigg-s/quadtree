@@ -27,19 +27,16 @@ impl QuadTreeOwner {
             return;
         }
 
-        if self.points.len() < self.capacity && self.children.is_none() {
-            self.points.push(*particle);
-            return;
-        }
-
-        if self.children.is_none() {
-            self.subdivide();
-        }
-
         if let Some(children) = &mut self.children {
             children.iter_mut().for_each(|child| {
                 child.insert_recursive(particle);
             });
+            return;
+        }
+
+        self.points.push(*particle);
+        if self.points.len() > self.capacity {
+            self.subdivide();
         }
     }
 
@@ -92,6 +89,7 @@ impl QuadTreeOwner {
     }
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct QuadTreeNode {
     pub bounds: BoundingBox,
@@ -105,6 +103,7 @@ impl QuadTreeNode {
     }
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct QuadTreeIndex {
     pub nodes: Vec<QuadTreeNode>,

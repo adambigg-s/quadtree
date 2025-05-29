@@ -5,6 +5,7 @@ use sokol::app as sapp;
 use crate::quadtree::QuadTreeIndex;
 use crate::quadtree::QuadTreeOwner;
 use crate::utils::random_vec2;
+use crate::utils::wait;
 use crate::utils::BoundingBox;
 
 #[repr(C)]
@@ -43,7 +44,6 @@ pub struct State {
     pub particles: Vec<Particle>,
 
     pub tree: QuadTreeOwner,
-    pub tree_index: QuadTreeIndex,
 }
 
 impl State {
@@ -52,11 +52,7 @@ impl State {
             dimensions: BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             particles: Vec::new(),
             tree: QuadTreeOwner::build(
-                5,
-                BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
-            ),
-            tree_index: QuadTreeIndex::build(
-                4,
+                3,
                 BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             ),
         }
@@ -72,6 +68,7 @@ impl State {
                 velocity: Vec2::ZERO,
                 mass: 3.,
             });
+            wait(30);
         }
         if event.key_code == sapp::Keycode::R {
             self.particles.clear();
@@ -108,7 +105,7 @@ impl State {
 
     pub fn init_tree(&mut self) {
         self.tree.init_tree(&self.particles);
-        self.tree_index.init_tree(&self.particles);
+        // self.tree_index.init_tree(&self.particles);
     }
 
     pub fn query_tree(tree: &QuadTreeOwner, pos: Vec2, radius: f32) -> Vec<Particle> {

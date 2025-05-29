@@ -78,20 +78,6 @@ impl PrimitiveRenderer {
             );
             gfx::draw(0, target.draw_elements, 1);
         });
-
-        let Some(target) = self.render_targets.get(&RenderPrimitive::Line)
-        else {
-            panic!("target not initialized")
-        };
-        gfx::apply_pipeline(target.pipeline);
-        gfx::apply_bindings(&target.bindings);
-        gfx::apply_uniforms(
-            line_shader::UB_V_PARAMS_WORLD,
-            &gfx::value_as_range(&line_shader::VParamsWorld {
-                world_dims: [state.dimensions.width(), state.dimensions.height()],
-                _pad_8: [0; 8],
-            }),
-        );
     }
 
     fn init_circle(&mut self) {

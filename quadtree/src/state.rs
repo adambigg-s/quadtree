@@ -41,7 +41,7 @@ pub struct State {
     pub particles: Vec<Particle>,
 
     pub tree: QuadTreeOwner,
-    // pub tree_index: QuadTreeIndex,
+    pub tree_index: QuadTreeIndex,
 }
 
 impl State {
@@ -53,10 +53,10 @@ impl State {
                 5,
                 BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             ),
-            // tree_index: QuadTreeIndex::build(
-            //     4,
-            //     BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
-            // ),
+            tree_index: QuadTreeIndex::build(
+                4,
+                BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
+            ),
         }
     }
 

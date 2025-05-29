@@ -1,25 +1,23 @@
 @vs circle_vs
 in vec2 v_pos;
 
+in vec2 i_center;
+in float i_radius;
+in vec3 i_color;
+
 out vec2 f_pos;
 out vec3 f_color;
-
-layout (binding = 0) uniform v_params {
-    vec3 color;
-    vec2 center;
-    float radius;
-};
 
 layout (binding = 1) uniform v_params_world {
     vec2 world_dims;
 };
 
 void main() {
-    f_color = color;
+    f_color = i_color;
     f_pos = v_pos;
     
-    vec2 ndc_center = (center / world_dims) * 2. - 1.;
-    vec2 ndc_radius = (radius / world_dims) * 2.;
+    vec2 ndc_center = (i_center / world_dims) * 2. - 1.;
+    vec2 ndc_radius = (i_radius / world_dims) * 2.;
 
     vec2 pos = ndc_center + v_pos * ndc_radius;
     gl_Position = vec4(pos, 0., 1.);

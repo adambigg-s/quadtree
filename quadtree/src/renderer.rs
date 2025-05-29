@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::str::FromStr;
 
+use glam::Vec2;
+use glam::Vec3;
 use sokol::gfx;
 
 use crate::compiled_shaders::circ_shader;
@@ -65,19 +67,17 @@ impl PrimitiveRenderer {
                 _pad_8: [0; 8],
             }),
         );
-        state.particles.iter().for_each(|particle| {
-            gfx::apply_uniforms(
-                circ_shader::UB_V_PARAMS,
-                &gfx::value_as_range(&circ_shader::VParams {
-                    color: [1., 1., 1.],
-                    _pad_12: [0; 4],
-                    center: [particle.position.x, particle.position.y],
-                    radius: particle.mass,
-                    _pad_28: [0; 4],
-                }),
-            );
-            gfx::draw(0, target.draw_elements, 1);
-        });
+        let mut instances = Vec::with_capacity(state.particles.len() * 6);
+        for particle in &state.particles {
+            instances.push(particle.position.x);
+            instances.push(particle.position.y);
+            instances.push(particle.mass);
+            instances.push(1.);
+            instances.push(0.9);
+            instances.push(1.);
+        }
+        gfx::update_buffer(target.bindings.vertex_buffers[1], &gfx::slice_as_range(&instances));
+        gfx::draw(0, target.draw_elements, instances.len());
     }
 
     fn init_circle(&mut self) {
@@ -97,11 +97,32 @@ impl PrimitiveRenderer {
             label: CString::from_str("circle vertices").unwrap().as_ptr(),
             ..Default::default()
         });
+        self.set_bindings.vertex_buffers[1] = gfx::make_buffer(&gfx::BufferDesc {
+            /* can explicitly only instance 1_000_000 circles per call */
+            size: (size_of::<Vec2>() + size_of::<f32>() + size_of::<Vec3>()) * 1_000_001,
+            usage: gfx::Usage::Stream,
+            label: CString::from_str("circle instances").unwrap().as_ptr(),
+            ..Default::default()
+        });
         self.set_pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
             shader: gfx::make_shader(&circ_shader::circle_shader_desc(gfx::query_backend())),
             layout: {
                 let mut layout = gfx::VertexLayoutState::new();
                 layout.attrs[circ_shader::ATTR_CIRCLE_V_POS].format = gfx::VertexFormat::Float2;
+                layout.attrs[circ_shader::ATTR_CIRCLE_V_POS].buffer_index = 0;
+
+                layout.attrs[circ_shader::ATTR_CIRCLE_I_CENTER].format = gfx::VertexFormat::Float2;
+                layout.attrs[circ_shader::ATTR_CIRCLE_I_CENTER].buffer_index = 1;
+                layout.buffers[circ_shader::ATTR_CIRCLE_I_CENTER].step_func = gfx::VertexStep::PerInstance;
+
+                layout.attrs[circ_shader::ATTR_CIRCLE_I_RADIUS].format = gfx::VertexFormat::Float;
+                layout.attrs[circ_shader::ATTR_CIRCLE_I_RADIUS].buffer_index = 1;
+                layout.buffers[circ_shader::ATTR_CIRCLE_I_RADIUS].step_func = gfx::VertexStep::PerInstance;
+
+                layout.attrs[circ_shader::ATTR_CIRCLE_I_COLOR].format = gfx::VertexFormat::Float3;
+                layout.attrs[circ_shader::ATTR_CIRCLE_I_COLOR].buffer_index = 1;
+                layout.buffers[circ_shader::ATTR_CIRCLE_I_COLOR].step_func = gfx::VertexStep::PerInstance;
+
                 layout
             },
             primitive_type: gfx::PrimitiveType::Triangles,

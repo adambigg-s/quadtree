@@ -1,11 +1,11 @@
 use glam::Vec2;
+use sokol::time;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct BoundingBox {
-    /* these dimensions aren't relavent for NDC / render space */
-    pub min: Vec2, /* top left in world space */
-    pub max: Vec2, /* bottom right in world space */
+    pub min: Vec2,
+    pub max: Vec2,
 }
 
 impl BoundingBox {
@@ -22,14 +22,14 @@ impl BoundingBox {
     }
 
     pub fn contains(&self, point: Vec2) -> bool {
-        self.min.x < point.x && self.min.y < point.y && self.max.x > point.x && self.max.y > point.y
+        self.min.x <= point.x && self.min.y <= point.y && self.max.x > point.x && self.max.y > point.y
     }
 
     pub fn overlaps(&self, other: &BoundingBox) -> bool {
         self.max.x > other.min.x
-            && self.min.x < other.max.x
+            && self.min.x <= other.max.x
             && self.max.y > other.min.y
-            && self.min.y < other.max.y
+            && self.min.y <= other.max.y
     }
 
     pub fn center(&self) -> Vec2 {
@@ -38,14 +38,29 @@ impl BoundingBox {
 
     pub fn split_quadrants(&self) -> [Self; 4] {
         let center = self.center();
-        /* follows the unit circle quadrant conventions, but the origin is
-        in the top left so it is a little confusing */
+        /* follows the unit circle quadrant conventions, but the origin is in
+        the top left so it is a little confusing */
         [
             BoundingBox::build(Vec2::new(center.x, self.min.y), Vec2::new(self.max.x, center.y)), // i
             BoundingBox::build(self.min, center),                                                 // ii
             BoundingBox::build(Vec2::new(self.min.x, center.y), Vec2::new(center.x, self.max.y)), // ii
             BoundingBox::build(center, self.max),                                                 // iv
         ]
+    }
+}
+
+#[derive(Debug)]
+pub struct Clock {
+    pub curr_time: u64,
+    pub last_time: u64,
+    pub frame_time: f32,
+}
+
+impl Clock {
+    pub fn update(&mut self, now: u64) {
+        self.last_time = self.curr_time;
+        self.curr_time = now;
+        self.frame_time = time::sec(self.curr_time - self.last_time) as f32;
     }
 }
 

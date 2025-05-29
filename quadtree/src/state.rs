@@ -1,5 +1,7 @@
 use glam::Vec2;
 
+use sokol::app as sapp;
+
 use crate::quadtree::QuadTreeIndex;
 use crate::quadtree::QuadTreeOwner;
 use crate::utils::random_vec2;
@@ -60,6 +62,22 @@ impl State {
         }
     }
 
+    pub fn handle_event(&mut self, event: sapp::Event) {
+        if event.mouse_button == sapp::Mousebutton::Left {
+            self.particles.push(Particle {
+                position: {
+                    let (mx, my) = (event.mouse_x, sapp::heightf() - event.mouse_y);
+                    Vec2::new(mx, my)
+                },
+                velocity: Vec2::ZERO,
+                mass: 3.,
+            });
+        }
+        if event.key_code == sapp::Keycode::R {
+            self.particles.clear();
+        }
+    }
+
     pub fn init(&mut self) {
         (0..1).for_each(|_| {
             self.add_random_particle();
@@ -90,7 +108,7 @@ impl State {
 
     pub fn init_tree(&mut self) {
         self.tree.init_tree(&self.particles);
-        // self.tree_index.init_tree(&self.particles);
+        self.tree_index.init_tree(&self.particles);
     }
 
     pub fn query_tree(tree: &QuadTreeOwner, pos: Vec2, radius: f32) -> Vec<Particle> {

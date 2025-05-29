@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::str::FromStr;
 
-use sokol::gfx;
-
 use glam::Vec2;
 use glam::Vec3;
+
+use sokol::gfx;
 
 use crate::compiled_shaders::circ_shader;
 use crate::compiled_shaders::line_shader;
@@ -14,6 +14,7 @@ use crate::quadtree::QuadTreeOwner;
 use crate::state::State;
 
 #[allow(dead_code)]
+#[repr(C)]
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub enum RenderPrimitive {
     Tri,
@@ -83,12 +84,18 @@ impl PrimitiveRenderer {
             fn quad_centers(node: &QuadTreeOwner, data: &mut Vec<f32>) {
                 let center = node.bounds.center();
                 let (min, max) = (node.bounds.min, node.bounds.max);
-                data.extend_from_slice(&[center.x, min.y, 1., 0.7, 0.7, center.x, max.y, 1., 0.7, 0.7]);
-                data.extend_from_slice(&[min.x, center.y, 1., 0.7, 0.7, max.x, center.y, 1., 0.7, 0.7]);
+                #[rustfmt::skip]
+                data.extend_from_slice(&[
+                    center.x, min.y, 1., 0.7, 0.7,
+                    center.x, max.y, 1., 0.7, 0.7,
+                    min.x, center.y, 1., 0.7, 0.7,
+                    max.x, center.y, 1., 0.7, 0.7,
+                ]);
+
                 if let Some(children) = &node.children {
-                    for child in children {
+                    children.iter().for_each(|child| {
                         quad_centers(child, data);
-                    }
+                    });
                 }
             }
         }
@@ -106,8 +113,8 @@ impl PrimitiveRenderer {
                     _pad_8: [0; 8],
                 }),
             );
-            let mut instances = Vec::with_capacity(state.particles.len() * 6);
             let color = [0.7, 0.7, 0.7];
+            let mut instances = Vec::with_capacity(state.particles.len() * 6);
             state.particles.iter().for_each(|particle| {
                 instances.extend_from_slice(&[particle.position.x, particle.position.y, particle.mass]);
                 instances.extend_from_slice(&color);
@@ -136,8 +143,7 @@ impl PrimitiveRenderer {
             ..Default::default()
         });
         self.set_bindings.vertex_buffers[1] = gfx::make_buffer(&gfx::BufferDesc {
-            /* can explicitly only instance 1_000_001 circles per call */
-            size: instance_size * 1_000_001,
+            size: instance_size * 1_000_001, // can draw one million circles per call
             usage: gfx::Usage::Stream,
             label: CString::from_str("circle instances").unwrap().as_ptr(),
             ..Default::default()
@@ -182,8 +188,7 @@ impl PrimitiveRenderer {
     fn init_line(&mut self) {
         let instance_size = (size_of::<Vec2>() * 2 + size_of::<Vec3>()) * 2;
         self.set_bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
-            /* can only draw n lines per batch call */
-            size: instance_size * 1_000_001,
+            size: instance_size * 1_000_001, // can draw about 1 million lines per call
             usage: gfx::Usage::Stream,
             label: CString::from_str("line instances").unwrap().as_ptr(),
             ..Default::default()
@@ -195,9 +200,11 @@ impl PrimitiveRenderer {
 
                 layout.attrs[line_shader::ATTR_LINE_I_POS].format = gfx::VertexFormat::Float2;
                 layout.attrs[line_shader::ATTR_LINE_I_POS].buffer_index = 0;
+                layout.buffers[line_shader::ATTR_LINE_I_POS].step_func = gfx::VertexStep::PerVertex;
 
                 layout.attrs[line_shader::ATTR_LINE_I_COLOR].format = gfx::VertexFormat::Float3;
                 layout.attrs[line_shader::ATTR_LINE_I_COLOR].buffer_index = 0;
+                layout.buffers[line_shader::ATTR_LINE_I_COLOR].step_func = gfx::VertexStep::PerVertex;
 
                 layout
             },
@@ -211,7 +218,7 @@ impl PrimitiveRenderer {
                 pipeline: self.set_pipeline,
                 bindings: self.set_bindings,
                 draw_elements: 2,
-                instance_size: Some(instance_size),
+                instance_size: None,
             },
         );
     }

@@ -18,11 +18,11 @@ impl QuadTreeOwner {
     pub fn init_tree(&mut self, particles: &[Particle]) {
         self.clear_tree();
         for particle in particles {
-            self.insert(particle);
+            self.insert_recursive(particle);
         }
     }
 
-    pub fn insert(&mut self, particle: &Particle) {
+    pub fn insert_recursive(&mut self, particle: &Particle) {
         if !self.bounds.contains(particle.position) {
             return;
         }
@@ -32,11 +32,13 @@ impl QuadTreeOwner {
             return;
         }
 
-        self.subdivide();
+        if self.children.is_none() {
+            self.subdivide();
+        }
 
         if let Some(children) = &mut self.children {
             children.iter_mut().for_each(|child| {
-                child.insert(particle);
+                child.insert_recursive(particle);
             });
         }
     }
@@ -76,7 +78,7 @@ impl QuadTreeOwner {
         for particle in &self.points {
             if let Some(children) = &mut self.children {
                 for child in children.iter_mut() {
-                    child.insert(particle);
+                    child.insert_recursive(particle);
                 }
             }
         }

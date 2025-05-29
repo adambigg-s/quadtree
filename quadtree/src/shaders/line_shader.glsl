@@ -1,6 +1,6 @@
 @vs line_vs
-in vec2 v_pos;
-in vec3 v_color;
+in vec2 i_pos;
+in vec3 i_color;
 
 out vec3 f_color;
 
@@ -9,13 +9,10 @@ layout (binding = 0) uniform v_params_world {
 };
 
 void main() {
-    f_color = v_color;
+    f_color = i_color;
 
-    float ndcx = (v_pos.x / world_dims.x) * 2. - 1;
-    float ndcy = (v_pos.y / world_dims.y) * 2. - 1.;
-    vec2 ndc = vec2(ndcx, ndcy);
-
-    gl_Position = vec4(ndc, 1., 1.);
+    vec2 ndc = (i_pos / world_dims) * 2. - 1.;
+    gl_Position = vec4(ndc, 0., 1.);
 }
 @end
 

@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::str::FromStr;
 
+use sokol::gfx;
+
 use glam::Vec2;
 use glam::Vec3;
-use sokol::gfx;
 
 use crate::compiled_shaders::circ_shader;
 use crate::compiled_shaders::line_shader;
 use crate::compiled_shaders::tri_shader;
+use crate::quadtree::QuadTreeOwner;
 use crate::state::State;
 
 #[allow(dead_code)]
@@ -27,6 +29,7 @@ pub struct RenderObject {
     pub pipeline: gfx::Pipeline,
     pub bindings: gfx::Bindings,
     pub draw_elements: usize,
+    pub instance_size: Option<usize>,
 }
 
 #[repr(C)]
@@ -48,36 +51,70 @@ impl PrimitiveRenderer {
     pub fn init_pass_action(&mut self) {
         self.set_pass_action.colors[0] = gfx::ColorAttachmentAction {
             load_action: gfx::LoadAction::Clear,
-            clear_value: gfx::Color { r: 0.2, g: 0.2, b: 0.4, a: 1. },
+            clear_value: gfx::Color { r: 0., g: 0., b: 0., ..Default::default() },
             ..Default::default()
         };
     }
 
+    /* everything else is basically generic and can be reused for all
+    primitives. this function tho is specific to n-body and should honestly be
+    put inside state or pulled into another renderer but it keeps this specific
+    application more organized */
     pub fn render(&mut self, state: &State) {
-        let Some(target) = self.render_targets.get(&RenderPrimitive::Circ)
-        else {
-            panic!("target not initizlied")
-        };
-        gfx::apply_pipeline(target.pipeline);
-        gfx::apply_bindings(&target.bindings);
-        gfx::apply_uniforms(
-            circ_shader::UB_V_PARAMS_WORLD,
-            &gfx::value_as_range(&circ_shader::VParamsWorld {
-                world_dims: [state.dimensions.width(), state.dimensions.height()],
-                _pad_8: [0; 8],
-            }),
-        );
-        let mut instances = Vec::with_capacity(state.particles.len() * 6);
-        for particle in &state.particles {
-            instances.push(particle.position.x);
-            instances.push(particle.position.y);
-            instances.push(particle.mass);
-            instances.push(1.);
-            instances.push(0.9);
-            instances.push(1.);
+        {
+            let Some(target) = self.render_targets.get(&RenderPrimitive::Line)
+            else {
+                panic!("triangle primitive not initialized")
+            };
+            gfx::apply_pipeline(target.pipeline);
+            gfx::apply_bindings(&target.bindings);
+            gfx::apply_uniforms(
+                line_shader::UB_V_PARAMS_WORLD,
+                &gfx::value_as_range(&line_shader::VParamsWorld {
+                    world_dims: [state.dimensions.width(), state.dimensions.height()],
+                    _pad_8: [0; 8],
+                }),
+            );
+            let mut instances = Vec::new();
+            quad_centers(&state.tree, &mut instances);
+            gfx::update_buffer(target.bindings.vertex_buffers[0], &gfx::slice_as_range(&instances));
+            gfx::draw(0, instances.len() / target.draw_elements, 1);
+
+            fn quad_centers(node: &QuadTreeOwner, data: &mut Vec<f32>) {
+                let center = node.bounds.center();
+                let (min, max) = (node.bounds.min, node.bounds.max);
+                data.extend_from_slice(&[center.x, min.y, 1., 0.7, 0.7, center.x, max.y, 1., 0.7, 0.7]);
+                data.extend_from_slice(&[min.x, center.y, 1., 0.7, 0.7, max.x, center.y, 1., 0.7, 0.7]);
+                if let Some(children) = &node.children {
+                    for child in children {
+                        quad_centers(child, data);
+                    }
+                }
+            }
         }
-        gfx::update_buffer(target.bindings.vertex_buffers[1], &gfx::slice_as_range(&instances));
-        gfx::draw(0, target.draw_elements, instances.len());
+        {
+            let Some(target) = self.render_targets.get(&RenderPrimitive::Circ)
+            else {
+                panic!("circle target not initizlied")
+            };
+            gfx::apply_pipeline(target.pipeline);
+            gfx::apply_bindings(&target.bindings);
+            gfx::apply_uniforms(
+                circ_shader::UB_V_PARAMS_WORLD,
+                &gfx::value_as_range(&circ_shader::VParamsWorld {
+                    world_dims: [state.dimensions.width(), state.dimensions.height()],
+                    _pad_8: [0; 8],
+                }),
+            );
+            let mut instances = Vec::with_capacity(state.particles.len() * 6);
+            let color = [0.7, 0.7, 0.7];
+            state.particles.iter().for_each(|particle| {
+                instances.extend_from_slice(&[particle.position.x, particle.position.y, particle.mass]);
+                instances.extend_from_slice(&color);
+            });
+            gfx::update_buffer(target.bindings.vertex_buffers[1], &gfx::slice_as_range(&instances));
+            gfx::draw(0, target.draw_elements, instances.len() / target.draw_elements);
+        }
     }
 
     fn init_circle(&mut self) {
@@ -90,6 +127,7 @@ impl PrimitiveRenderer {
             -1.0,  1.0,
             -1.0, -1.0
         ];
+        let instance_size = size_of::<Vec2>() + size_of::<f32>() + size_of::<Vec3>();
         self.set_bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
             size: size_of::<f32>() * vertices.len(),
             usage: gfx::Usage::Immutable,
@@ -98,8 +136,8 @@ impl PrimitiveRenderer {
             ..Default::default()
         });
         self.set_bindings.vertex_buffers[1] = gfx::make_buffer(&gfx::BufferDesc {
-            /* can explicitly only instance 1_000_000 circles per call */
-            size: (size_of::<Vec2>() + size_of::<f32>() + size_of::<Vec3>()) * 1_000_001,
+            /* can explicitly only instance 1_000_001 circles per call */
+            size: instance_size * 1_000_001,
             usage: gfx::Usage::Stream,
             label: CString::from_str("circle instances").unwrap().as_ptr(),
             ..Default::default()
@@ -108,6 +146,7 @@ impl PrimitiveRenderer {
             shader: gfx::make_shader(&circ_shader::circle_shader_desc(gfx::query_backend())),
             layout: {
                 let mut layout = gfx::VertexLayoutState::new();
+
                 layout.attrs[circ_shader::ATTR_CIRCLE_V_POS].format = gfx::VertexFormat::Float2;
                 layout.attrs[circ_shader::ATTR_CIRCLE_V_POS].buffer_index = 0;
 
@@ -131,23 +170,35 @@ impl PrimitiveRenderer {
         });
         self.render_targets.insert(
             RenderPrimitive::Circ,
-            RenderObject { pipeline: self.set_pipeline, bindings: self.set_bindings, draw_elements: 6 },
+            RenderObject {
+                pipeline: self.set_pipeline,
+                bindings: self.set_bindings,
+                draw_elements: vertices.len() / 2,
+                instance_size: Some(instance_size),
+            },
         );
     }
 
     fn init_line(&mut self) {
+        let instance_size = (size_of::<Vec2>() * 2 + size_of::<Vec3>()) * 2;
         self.set_bindings.vertex_buffers[0] = gfx::make_buffer(&gfx::BufferDesc {
-            size: size_of::<f32>() * 2048,
+            /* can only draw n lines per batch call */
+            size: instance_size * 1_000_001,
             usage: gfx::Usage::Stream,
-            label: CString::from_str("line vertices").unwrap().as_ptr(),
+            label: CString::from_str("line instances").unwrap().as_ptr(),
             ..Default::default()
         });
         self.set_pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
             shader: gfx::make_shader(&line_shader::line_shader_desc(gfx::query_backend())),
             layout: {
                 let mut layout = gfx::VertexLayoutState::new();
-                layout.attrs[line_shader::ATTR_LINE_V_POS].format = gfx::VertexFormat::Float2;
-                layout.attrs[line_shader::ATTR_LINE_V_COLOR].format = gfx::VertexFormat::Float3;
+
+                layout.attrs[line_shader::ATTR_LINE_I_POS].format = gfx::VertexFormat::Float2;
+                layout.attrs[line_shader::ATTR_LINE_I_POS].buffer_index = 0;
+
+                layout.attrs[line_shader::ATTR_LINE_I_COLOR].format = gfx::VertexFormat::Float3;
+                layout.attrs[line_shader::ATTR_LINE_I_COLOR].buffer_index = 0;
+
                 layout
             },
             primitive_type: gfx::PrimitiveType::Lines,
@@ -156,7 +207,12 @@ impl PrimitiveRenderer {
         });
         self.render_targets.insert(
             RenderPrimitive::Line,
-            RenderObject { pipeline: self.set_pipeline, bindings: self.set_bindings, draw_elements: 2048 },
+            RenderObject {
+                pipeline: self.set_pipeline,
+                bindings: self.set_bindings,
+                draw_elements: 2,
+                instance_size: Some(instance_size),
+            },
         );
     }
 
@@ -188,7 +244,12 @@ impl PrimitiveRenderer {
         });
         self.render_targets.insert(
             RenderPrimitive::Tri,
-            RenderObject { pipeline: self.set_pipeline, bindings: self.set_bindings, draw_elements: 3 },
+            RenderObject {
+                pipeline: self.set_pipeline,
+                bindings: self.set_bindings,
+                draw_elements: vertices.len() / 5,
+                instance_size: None,
+            },
         );
     }
 }

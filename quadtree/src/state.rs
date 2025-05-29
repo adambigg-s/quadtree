@@ -50,7 +50,7 @@ impl State {
             dimensions: BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             particles: Vec::new(),
             tree: QuadTreeOwner::build(
-                10,
+                5,
                 BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             ),
             // tree_index: QuadTreeIndex::build(
@@ -61,7 +61,7 @@ impl State {
     }
 
     pub fn init(&mut self) {
-        (0..100_000).for_each(|_| {
+        (0..1).for_each(|_| {
             self.add_random_particle();
         });
     }

@@ -68,6 +68,9 @@ extern "C" fn event(event: *const sapp::Event, ptr: *mut c_void) {
             mass: 3.,
         });
     }
+    if event.key_code == sapp::Keycode::R {
+        state.state.particles.clear();
+    }
 }
 
 #[allow(unused_must_use)]

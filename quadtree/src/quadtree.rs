@@ -89,6 +89,7 @@ impl QuadTreeOwner {
     }
 }
 
+#[allow(dead_code)]
 #[repr(C)]
 #[derive(Debug)]
 pub struct QuadTreeNode {
@@ -97,12 +98,14 @@ pub struct QuadTreeNode {
     pub data: Vec<usize>,
 }
 
+#[allow(dead_code)]
 impl QuadTreeNode {
     pub fn build(bounds: BoundingBox) -> Self {
         QuadTreeNode { bounds, children: None, data: Vec::with_capacity(5) }
     }
 }
 
+#[allow(dead_code)]
 #[repr(C)]
 #[derive(Debug)]
 pub struct QuadTreeIndex {
@@ -110,6 +113,7 @@ pub struct QuadTreeIndex {
     pub capacity: usize,
 }
 
+#[allow(dead_code)]
 impl QuadTreeIndex {
     const HEAD_INDEX: usize = 0;
 
@@ -121,11 +125,11 @@ impl QuadTreeIndex {
     pub fn init_tree(&mut self, particles: &[Particle]) {
         self.clear_tree();
         for (idx, particle) in particles.iter().enumerate() {
-            self.insert_node(Self::HEAD_INDEX, idx, particle);
+            self.insert_node_recursive(Self::HEAD_INDEX, idx, particle);
         }
     }
 
-    fn insert_node(&mut self, node_index: usize, idx: usize, particle: &Particle) {
+    fn insert_node_recursive(&mut self, node_index: usize, idx: usize, particle: &Particle) {
         let curr_node = &mut self.nodes[node_index];
         if !curr_node.bounds.contains(particle.position) {
             return;
@@ -139,7 +143,7 @@ impl QuadTreeIndex {
 
         if let Some(children) = self.nodes[node_index].children {
             for child in children {
-                self.insert_node(child, idx, particle);
+                self.insert_node_recursive(child, idx, particle);
             }
         }
     }

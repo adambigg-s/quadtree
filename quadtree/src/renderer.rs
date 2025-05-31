@@ -85,20 +85,20 @@ impl PrimitiveRenderer {
             gfx::draw(0, instances.len() / target.draw_elements, 1);
 
             fn quad_centers(node: &QuadTreeOwner, data: &mut Vec<f32>) {
-                let center = node.bounds.center();
-                let (min, max) = (node.bounds.min, node.bounds.max);
-                #[rustfmt::skip]
-                data.extend_from_slice(&[
-                    center.x, min.y, 1., 0.7, 0.7,
-                    center.x, max.y, 1., 0.7, 0.7,
-                    min.x, center.y, 1., 0.7, 0.7,
-                    max.x, center.y, 1., 0.7, 0.7,
-                ]);
-
                 if let Some(children) = &node.children {
                     children.iter().for_each(|child| {
                         quad_centers(child, data);
                     });
+
+                    let center = node.bounds.center();
+                    let (min, max) = (node.bounds.min, node.bounds.max);
+                    #[rustfmt::skip]
+                    data.extend_from_slice(&[
+                        center.x, min.y, 1., 0.7, 0.7,
+                        center.x, max.y, 1., 0.7, 0.7,
+                        min.x, center.y, 1., 0.7, 0.7,
+                        max.x, center.y, 1., 0.7, 0.7,
+                    ]);
                 }
             }
         }
@@ -119,7 +119,7 @@ impl PrimitiveRenderer {
             let color = [0.7, 0.7, 0.7];
             let mut instances = Vec::with_capacity(state.particles.len() * 6);
             state.particles.iter().for_each(|particle| {
-                instances.extend_from_slice(&[particle.position.x, particle.position.y, particle.mass]);
+                instances.extend_from_slice(&[particle.position.x, particle.position.y, particle.radius]);
                 instances.extend_from_slice(&color);
             });
             if instances.is_empty() {
@@ -223,7 +223,7 @@ impl PrimitiveRenderer {
             RenderObject {
                 pipeline: self.set_pipeline,
                 bindings: self.set_bindings,
-                draw_elements: 2,
+                draw_elements: 5,
                 instance_size: None,
             },
         );

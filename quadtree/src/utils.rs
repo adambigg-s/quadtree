@@ -1,4 +1,5 @@
 use glam::Vec2;
+
 use sokol::time;
 
 #[repr(C)]
@@ -66,6 +67,23 @@ impl Clock {
 
 pub fn random_vec2() -> Vec2 {
     Vec2::new(fastrand::f32(), fastrand::f32())
+}
+
+pub fn positive_rand_range_vec2(scale: Vec2) -> Vec2 {
+    let mut vec = random_vec2();
+    vec *= scale;
+    vec
+}
+
+pub fn zero_centered_range_vec2(scale: f32) -> Vec2 {
+    let mut vec = random_vec2();
+    vec = vec * 2. - Vec2::splat(1.);
+    vec *= scale;
+    vec
+}
+
+pub fn mouse_to_screen(mousex: f32, mousey: f32, dimensions: &BoundingBox) -> Vec2 {
+    Vec2::new(mousex, dimensions.height() - mousey)
 }
 
 pub fn wait(time_ms: u64) {

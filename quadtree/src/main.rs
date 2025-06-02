@@ -1,3 +1,4 @@
+mod barnes_hut;
 mod compiled_shaders;
 mod quadtree;
 mod renderer;

@@ -9,6 +9,7 @@ pub trait PositionPlanar {
 
 #[derive(Debug, Clone, Copy)]
 pub struct QuadTreeNode {
+    // the boundary for the specific node
     pub boundary: BoundingBox,
     // the *first* index for the leaves (there are always 4)
     pub leaves: Option<usize>,
@@ -23,10 +24,12 @@ impl QuadTreeNode {
 }
 
 #[derive(Debug)]
+/// non-tree style quadtree which only uses indices - should be way faster but
+/// is really confusing
 pub struct QuadTree {
     // all nodes for the tree
     pub nodes: Vec<QuadTreeNode>,
-    // holds index in main data slice for each node
+    // each vec holds indices in main for its data, one vec for each node
     pub node_pointers: Vec<Vec<usize>>,
     // max number of items in each leaf
     pub leaf_capacity: usize,
@@ -96,7 +99,7 @@ impl QuadTree {
         // yikes this is really confusing
         let node_index = self.node_pointers.len();
         self.nodes[target_node_index].data_head = Some(node_index);
-        self.node_pointers.push(Vec::new());
+        self.node_pointers.push(Vec::with_capacity(self.leaf_capacity));
         self.node_pointers[node_index].push(item_index);
     }
 
@@ -149,6 +152,8 @@ impl QuadTree {
 #[allow(dead_code)]
 #[repr(C)]
 #[derive(Debug)]
+/// typical tree structure, actually takes ownership of the data. pretty
+/// readable and safe but slow
 pub struct QuadTreeOwner {
     pub points: Vec<Particle>,
     pub children: Option<[Box<QuadTreeOwner>; 4]>,

@@ -2,6 +2,7 @@ use glam::Vec2;
 
 use sokol::app as sapp;
 
+use crate::barnes_hut::BarnesHutWrapper;
 use crate::quadtree::PositionPlanar;
 use crate::quadtree::QuadTree;
 use crate::utils::mouse_to_screen;
@@ -119,6 +120,8 @@ impl State {
 
     pub fn init_tree(&mut self) {
         self.quadtree.construct_tree(&self.particles);
+
+        let barnes_hut = BarnesHutWrapper::new();
     }
 
     pub fn query_tree(tree: &QuadTree, pos: Vec2, radius: f32) -> Vec<usize> {

@@ -2,7 +2,8 @@ use glam::Vec2;
 
 use sokol::app as sapp;
 
-use crate::quadtree::QuadTreeOwner;
+use crate::quadtree::PositionPlanar;
+use crate::quadtree::QuadTree;
 use crate::utils::mouse_to_screen;
 use crate::utils::positive_rand_range_vec2;
 use crate::utils::wait;
@@ -46,13 +47,19 @@ impl Particle {
     }
 }
 
+impl PositionPlanar for Particle {
+    fn position(&self) -> Vec2 {
+        self.position
+    }
+}
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct State {
     pub dimensions: BoundingBox,
     pub particles: Vec<Particle>,
     pub config: SimulationConfig,
-    pub tree: QuadTreeOwner,
+    pub quadtree: QuadTree,
 }
 
 impl State {
@@ -61,15 +68,15 @@ impl State {
             dimensions: BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             particles: Vec::new(),
             config: SimulationConfig {
+                starting_spawn: 1000,
                 gravity: 1e3,
                 epsilon_squared: 50.,
                 velocity_rand_max: 50.,
                 mass_rand_max: 100.,
-                starting_spawn: 30,
                 frame_time_dt_mod: 0.1,
                 neighbor_distance: 300.,
             },
-            tree: QuadTreeOwner::build(
+            quadtree: QuadTree::build(
                 3,
                 BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             ),
@@ -99,7 +106,7 @@ impl State {
 
     pub fn update_dimensions(&mut self, width: f32, height: f32) {
         self.dimensions.max = Vec2::new(width, height);
-        self.tree.bounds = self.dimensions;
+        self.quadtree.root().boundary = self.dimensions;
     }
 
     pub fn add_random_particle(&mut self) {
@@ -111,24 +118,31 @@ impl State {
     }
 
     pub fn init_tree(&mut self) {
-        self.tree.init_tree(&self.particles);
+        self.quadtree.construct_tree(&self.particles);
     }
 
-    pub fn query_tree(tree: &QuadTreeOwner, pos: Vec2, radius: f32) -> Vec<Particle> {
+    pub fn query_tree(tree: &QuadTree, pos: Vec2, radius: f32) -> Vec<usize> {
         tree.query_range(&BoundingBox::build(pos - Vec2::splat(radius), pos + Vec2::splat(radius)))
     }
 
     pub fn update(&mut self, mut dt: f32) {
         dt *= self.config.frame_time_dt_mod;
         self.init_tree();
-        for target in &mut self.particles {
-            let neighbors = Self::query_tree(&self.tree, target.position, self.config.neighbor_distance);
-            for other in neighbors {
-                let pointing = other.position - target.position;
-
-                if pointing.length() < 1e-4 {
+        for target_idx in 0..self.particles.len() {
+            let test_neighbors = Self::query_tree(
+                &self.quadtree,
+                self.particles[target_idx].position,
+                self.config.neighbor_distance,
+            );
+            for other_index in test_neighbors {
+                if target_idx == other_index {
                     continue;
                 }
+
+                let other = self.particles[other_index];
+                let target = &mut self.particles[target_idx];
+
+                let pointing = other.position - target.position;
 
                 let sq_radius = pointing.length_squared() + self.config.epsilon_squared;
                 let force = self.config.gravity * target.mass * other.mass / sq_radius;
@@ -146,11 +160,11 @@ impl State {
 #[repr(C)]
 #[derive(Debug)]
 pub struct SimulationConfig {
+    pub starting_spawn: usize,
     pub gravity: f32,
     pub epsilon_squared: f32,
     pub velocity_rand_max: f32,
     pub mass_rand_max: f32,
-    pub starting_spawn: usize,
     pub frame_time_dt_mod: f32,
     pub neighbor_distance: f32,
 }

@@ -10,7 +10,7 @@ use sokol::gfx;
 use crate::compiled_shaders::circ_shader;
 use crate::compiled_shaders::line_shader;
 use crate::compiled_shaders::tri_shader;
-use crate::quadtree::QuadTreeOwner;
+use crate::quadtree::QuadTree;
 use crate::state::State;
 
 #[allow(dead_code)]
@@ -77,31 +77,37 @@ impl PrimitiveRenderer {
                 }),
             );
             let mut instances = Vec::new();
-            quad_centers(&state.tree, &mut instances);
+            quad_centers(&state.quadtree, &mut instances);
             if instances.is_empty() {
                 break 'lines;
             }
             gfx::update_buffer(target.bindings.vertex_buffers[0], &gfx::slice_as_range(&instances));
             gfx::draw(0, instances.len() / target.draw_elements, 1);
 
-            fn quad_centers(node: &QuadTreeOwner, data: &mut Vec<f32>) {
-                if let Some(children) = &node.children {
-                    children.iter().for_each(|child| {
-                        quad_centers(child, data);
-                    });
+            fn quad_centers(quadtree: &QuadTree, data: &mut Vec<f32>) {
+                traverse_recursive(quadtree, QuadTree::ROOT_INDEX, data);
 
-                    let center = node.bounds.center();
-                    let (min, max) = (node.bounds.min, node.bounds.max);
-                    #[rustfmt::skip]
-                    data.extend_from_slice(&[
-                        center.x, min.y, 1., 0.7, 0.7,
-                        center.x, max.y, 1., 0.7, 0.7,
-                        min.x, center.y, 1., 0.7, 0.7,
-                        max.x, center.y, 1., 0.7, 0.7,
-                    ]);
+                fn traverse_recursive(quadtree: &QuadTree, target_node_index: usize, data: &mut Vec<f32>) {
+                    if let Some(leaf_start) = quadtree.nodes[target_node_index].leaves {
+                        for leaf in leaf_start..(leaf_start + QuadTree::STEM_LEAF_COUNT) {
+                            traverse_recursive(quadtree, leaf, data);
+                        }
+
+                        let node = quadtree.nodes[target_node_index];
+                        let center = node.boundary.center();
+                        let (min, max) = (node.boundary.min, node.boundary.max);
+                        #[rustfmt::skip]
+                        data.extend_from_slice(&[
+                            center.x, min.y, 1., 0.7, 0.7,
+                            center.x, max.y, 1., 0.7, 0.7,
+                            min.x, center.y, 1., 0.7, 0.7,
+                            max.x, center.y, 1., 0.7, 0.7,
+                        ]);
+                    }
                 }
             }
         }
+
         'circles: {
             let Some(target) = self.render_targets.get(&RenderPrimitive::Circ)
             else {
@@ -127,6 +133,10 @@ impl PrimitiveRenderer {
             }
             gfx::update_buffer(target.bindings.vertex_buffers[1], &gfx::slice_as_range(&instances));
             gfx::draw(0, target.draw_elements, instances.len() / target.draw_elements);
+        }
+
+        'polygons: {
+            break 'polygons;
         }
     }
 

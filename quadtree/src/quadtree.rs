@@ -1,6 +1,152 @@
+use glam::Vec2;
+
 use crate::state::Particle;
 use crate::utils::BoundingBox;
 
+pub trait PositionPlanar {
+    fn position(&self) -> Vec2;
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct QuadTreeNode {
+    pub boundary: BoundingBox,
+    // the *first* index for the leaves (there are always 4)
+    pub leaves: Option<usize>,
+    // index in QuadTree->node_pointers where actual node data lives
+    pub data_head: Option<usize>,
+}
+
+impl QuadTreeNode {
+    pub fn build(boundary: BoundingBox) -> Self {
+        QuadTreeNode { boundary, leaves: None, data_head: None }
+    }
+}
+
+#[derive(Debug)]
+pub struct QuadTree {
+    // all nodes for the tree
+    pub nodes: Vec<QuadTreeNode>,
+    // holds index in main data slice for each node
+    pub node_pointers: Vec<Vec<usize>>,
+    // max number of items in each leaf
+    pub leaf_capacity: usize,
+}
+
+impl QuadTree {
+    pub const ROOT_INDEX: usize = 0;
+    pub const STEM_LEAF_COUNT: usize = 4; // because it is a 'quad'-tree
+
+    pub fn build(leaf_capacity: usize, boundary: BoundingBox) -> Self {
+        QuadTree { nodes: vec![QuadTreeNode::build(boundary)], node_pointers: Vec::new(), leaf_capacity }
+    }
+
+    pub fn construct_tree<T>(&mut self, items: &[T])
+    where
+        T: PositionPlanar,
+    {
+        self.clear_tree();
+        (0..items.len()).for_each(|index| {
+            self.insert_recursive(Self::ROOT_INDEX, index, items);
+        });
+    }
+
+    pub fn query_range(&self, boundary: &BoundingBox) -> Vec<usize> {
+        let mut output = Vec::new();
+        self.search_recursive(Self::ROOT_INDEX, boundary, &mut output);
+
+        output
+    }
+
+    pub fn clear_tree(&mut self) {
+        self.nodes.truncate(1);
+        self.node_pointers.clear();
+        self.nodes[Self::ROOT_INDEX].leaves = None;
+        self.nodes[Self::ROOT_INDEX].data_head = None;
+    }
+
+    pub fn root(&mut self) -> &mut QuadTreeNode {
+        &mut self.nodes[Self::ROOT_INDEX]
+    }
+
+    fn insert_recursive<T>(&mut self, target_node_index: usize, item_index: usize, items: &[T])
+    where
+        T: PositionPlanar,
+    {
+        if !self.nodes[target_node_index].boundary.contains(items[item_index].position()) {
+            return;
+        }
+
+        if let Some(leaf_start) = self.nodes[target_node_index].leaves {
+            (leaf_start..(leaf_start + Self::STEM_LEAF_COUNT)).for_each(|leaf| {
+                self.insert_recursive(leaf, item_index, items);
+            });
+            return;
+        }
+
+        if let Some(node_list_index) = self.nodes[target_node_index].data_head {
+            self.node_pointers[node_list_index].push(item_index);
+
+            if self.node_pointers[node_list_index].len() > self.leaf_capacity {
+                self.subdivide_stem_to_leaf(target_node_index, items);
+            }
+
+            return;
+        }
+
+        // yikes this is really confusing
+        let node_index = self.node_pointers.len();
+        self.nodes[target_node_index].data_head = Some(node_index);
+        self.node_pointers.push(Vec::new());
+        self.node_pointers[node_index].push(item_index);
+    }
+
+    fn search_recursive(&self, target_node_index: usize, boundary: &BoundingBox, outputs: &mut Vec<usize>) {
+        if !self.nodes[target_node_index].boundary.overlaps(boundary) {
+            return;
+        }
+
+        if let Some(leaf_start) = self.nodes[target_node_index].leaves {
+            (leaf_start..(leaf_start + Self::STEM_LEAF_COUNT)).for_each(|leaf| {
+                self.search_recursive(leaf, boundary, outputs);
+            });
+            return;
+        }
+
+        if let Some(node_list_index) = self.nodes[target_node_index].data_head {
+            self.node_pointers[node_list_index].iter().for_each(|&item_index| {
+                outputs.push(item_index);
+            });
+        }
+    }
+
+    fn subdivide_stem_to_leaf<T>(&mut self, target_node_index: usize, items: &[T])
+    where
+        T: PositionPlanar,
+    {
+        self.nodes[target_node_index].leaves = Some(self.nodes.len());
+
+        let [i, ii, iii, iv] = self.nodes[target_node_index].boundary.split_quadrants();
+        self.nodes.extend([
+            QuadTreeNode::build(i),
+            QuadTreeNode::build(ii),
+            QuadTreeNode::build(iii),
+            QuadTreeNode::build(iv),
+        ]);
+
+        if let Some(node_list_index) = self.nodes[target_node_index].data_head {
+            // drains the (now stem) node's data to pour into new leaves
+            let stored_item_indices: Vec<usize> = self.node_pointers[node_list_index].drain(..).collect();
+
+            ((self.nodes.len() - Self::STEM_LEAF_COUNT)..self.nodes.len()).for_each(|leaf| {
+                stored_item_indices.iter().for_each(|&item_index| {
+                    self.insert_recursive(leaf, item_index, items);
+                });
+            });
+        }
+    }
+}
+
+#[allow(dead_code)]
 #[repr(C)]
 #[derive(Debug)]
 pub struct QuadTreeOwner {
@@ -10,6 +156,7 @@ pub struct QuadTreeOwner {
     pub bounds: BoundingBox,
 }
 
+#[allow(dead_code)]
 impl QuadTreeOwner {
     pub fn build(capacity: usize, bounds: BoundingBox) -> Self {
         QuadTreeOwner { points: Vec::new(), children: None, capacity, bounds }
@@ -17,12 +164,18 @@ impl QuadTreeOwner {
 
     pub fn init_tree(&mut self, particles: &[Particle]) {
         self.clear_tree();
-        for particle in particles {
+        particles.iter().for_each(|particle| {
             self.insert_recursive(particle);
-        }
+        });
     }
 
-    pub fn insert_recursive(&mut self, particle: &Particle) {
+    pub fn query_range(&self, range: &BoundingBox) -> Vec<Particle> {
+        let mut output = Vec::new();
+        self.recursive_search(range, &mut output);
+        output
+    }
+
+    fn insert_recursive(&mut self, particle: &Particle) {
         if !self.bounds.contains(particle.position) {
             return;
         }
@@ -40,27 +193,21 @@ impl QuadTreeOwner {
         }
     }
 
-    pub fn query_range(&self, range: &BoundingBox) -> Vec<Particle> {
-        let mut output = Vec::new();
-        self.recursive_search(range, &mut output);
-        output
-    }
-
     fn recursive_search(&self, range: &BoundingBox, outputs: &mut Vec<Particle>) {
         if !self.bounds.overlaps(range) {
             return;
         }
 
-        for particle in &self.points {
+        self.points.iter().for_each(|particle| {
             if range.contains(particle.position) {
                 outputs.push(*particle);
             }
-        }
+        });
 
         if let Some(children) = &self.children {
-            for child in children.iter() {
+            children.iter().for_each(|child| {
                 child.recursive_search(range, outputs);
-            }
+            });
         }
     }
 
@@ -72,13 +219,13 @@ impl QuadTreeOwner {
             Box::new(QuadTreeOwner::build(self.capacity, quads[2])),
             Box::new(QuadTreeOwner::build(self.capacity, quads[3])),
         ]);
-        for particle in &self.points {
+        self.points.iter().for_each(|particle| {
             if let Some(children) = &mut self.children {
-                for child in children.iter_mut() {
+                children.iter_mut().for_each(|child| {
                     child.insert_recursive(particle);
-                }
+                });
             }
-        }
+        });
 
         self.points.clear();
     }
@@ -86,79 +233,5 @@ impl QuadTreeOwner {
     fn clear_tree(&mut self) {
         self.points.clear();
         self.children = None;
-    }
-}
-
-#[allow(dead_code)]
-#[repr(C)]
-#[derive(Debug)]
-pub struct QuadTreeNode {
-    pub bounds: BoundingBox,
-    pub children: Option<[usize; 4]>,
-    pub data: Vec<usize>,
-}
-
-#[allow(dead_code)]
-impl QuadTreeNode {
-    pub fn build(bounds: BoundingBox) -> Self {
-        QuadTreeNode { bounds, children: None, data: Vec::with_capacity(5) }
-    }
-}
-
-#[allow(dead_code)]
-#[repr(C)]
-#[derive(Debug)]
-pub struct QuadTreeIndex {
-    pub nodes: Vec<QuadTreeNode>,
-    pub capacity: usize,
-}
-
-#[allow(dead_code)]
-impl QuadTreeIndex {
-    const HEAD_INDEX: usize = 0;
-
-    pub fn build(capacity: usize, bounds: BoundingBox) -> Self {
-        let head = QuadTreeNode::build(bounds);
-        QuadTreeIndex { nodes: vec![head], capacity }
-    }
-
-    pub fn init_tree(&mut self, particles: &[Particle]) {
-        self.clear_tree();
-        for (idx, particle) in particles.iter().enumerate() {
-            self.insert_node_recursive(Self::HEAD_INDEX, idx, particle);
-        }
-    }
-
-    fn insert_node_recursive(&mut self, node_index: usize, idx: usize, particle: &Particle) {
-        let curr_node = &mut self.nodes[node_index];
-        if !curr_node.bounds.contains(particle.position) {
-            return;
-        }
-        if curr_node.data.len() < self.capacity && curr_node.children.is_none() {
-            curr_node.data.push(idx);
-            return;
-        }
-
-        self.subdivide(node_index);
-
-        if let Some(children) = self.nodes[node_index].children {
-            for child in children {
-                self.insert_node_recursive(child, idx, particle);
-            }
-        }
-    }
-
-    fn subdivide(&mut self, node_index: usize) {
-        let quads = self.nodes[node_index].bounds.split_quadrants();
-        self.nodes[node_index].children =
-            Some([node_index + 1, node_index + 2, node_index + 3, node_index + 4]);
-        self.nodes.push(QuadTreeNode::build(quads[0]));
-        self.nodes.push(QuadTreeNode::build(quads[1]));
-        self.nodes.push(QuadTreeNode::build(quads[2]));
-        self.nodes.push(QuadTreeNode::build(quads[3]));
-    }
-
-    fn clear_tree(&mut self) {
-        self.nodes.truncate(1);
     }
 }

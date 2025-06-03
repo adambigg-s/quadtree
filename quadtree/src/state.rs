@@ -2,7 +2,6 @@ use glam::Vec2;
 
 use sokol::app as sapp;
 
-use crate::barnes_hut::BarnesHutWrapper;
 use crate::quadtree::PositionPlanar;
 use crate::quadtree::QuadTree;
 use crate::utils::mouse_to_screen;
@@ -69,7 +68,7 @@ impl State {
             dimensions: BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             particles: Vec::new(),
             config: SimulationConfig {
-                starting_spawn: 1000,
+                starting_spawn: 10,
                 gravity: 1e3,
                 epsilon_squared: 50.,
                 velocity_rand_max: 50.,
@@ -78,7 +77,7 @@ impl State {
                 neighbor_distance: 300.,
             },
             quadtree: QuadTree::build(
-                3,
+                2,
                 BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             ),
         }
@@ -88,17 +87,18 @@ impl State {
         (0..self.config.starting_spawn).for_each(|_| {
             self.add_random_particle();
         });
+        // spawns one big particle in the middle
         self.particles.push(Particle::new(self.dimensions.max / 2., Vec2::ZERO, 10000.));
     }
 
     pub fn handle_event(&mut self, event: sapp::Event) {
-        if event.mouse_button == sapp::Mousebutton::Left {
+        if event.mouse_button == sapp::Mousebutton::Left && event._type == sapp::EventType::MouseDown {
             self.particles.push(Particle::new(
                 mouse_to_screen(event.mouse_x, event.mouse_y, &self.dimensions),
                 Vec2::ZERO,
                 self.config.mass_rand_max,
             ));
-            wait(30);
+            wait(3);
         }
         if event.key_code == sapp::Keycode::R {
             self.particles.clear();
@@ -120,8 +120,6 @@ impl State {
 
     pub fn init_tree(&mut self) {
         self.quadtree.construct_tree(&self.particles);
-
-        let barnes_hut = BarnesHutWrapper::new();
     }
 
     pub fn query_tree(tree: &QuadTree, pos: Vec2, radius: f32) -> Vec<usize> {
@@ -130,20 +128,21 @@ impl State {
 
     pub fn update(&mut self, mut dt: f32) {
         dt *= self.config.frame_time_dt_mod;
+
         self.init_tree();
-        for target_idx in 0..self.particles.len() {
-            let test_neighbors = Self::query_tree(
+        for target_index in 0..self.particles.len() {
+            let neighbors = Self::query_tree(
                 &self.quadtree,
-                self.particles[target_idx].position,
+                self.particles[target_index].position,
                 self.config.neighbor_distance,
             );
-            for other_index in test_neighbors {
-                if target_idx == other_index {
+            for other_index in neighbors {
+                if target_index == other_index {
                     continue;
                 }
 
                 let other = self.particles[other_index];
-                let target = &mut self.particles[target_idx];
+                let target = &mut self.particles[target_index];
 
                 let pointing = other.position - target.position;
 

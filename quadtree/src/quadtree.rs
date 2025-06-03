@@ -7,6 +7,7 @@ pub trait PositionPlanar {
     fn position(&self) -> Vec2;
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct QuadTreeNode {
     // the boundary for the specific node
@@ -23,9 +24,10 @@ impl QuadTreeNode {
     }
 }
 
-#[derive(Debug)]
 /// non-tree style quadtree which only uses indices - should be way faster but
 /// is really confusing
+#[repr(C)]
+#[derive(Debug)]
 pub struct QuadTree {
     // all nodes for the tree
     pub nodes: Vec<QuadTreeNode>,
@@ -61,10 +63,10 @@ impl QuadTree {
     }
 
     pub fn clear_tree(&mut self) {
-        self.nodes.truncate(1);
-        self.node_pointers.clear();
         self.nodes[Self::ROOT_INDEX].leaves = None;
         self.nodes[Self::ROOT_INDEX].data_head = None;
+        self.nodes.truncate(1);
+        self.node_pointers.clear();
     }
 
     pub fn root(&mut self) -> &mut QuadTreeNode {
@@ -78,12 +80,20 @@ impl QuadTree {
         if !self.nodes[target_node_index].boundary.contains(items[item_index].position()) {
             return;
         }
+        // if we don't contain the item, EXIT
+        {
+            debug_assert!(self.nodes[target_node_index].boundary.contains(items[item_index].position()));
+        }
 
         if let Some(leaf_start) = self.nodes[target_node_index].leaves {
             (leaf_start..(leaf_start + Self::STEM_LEAF_COUNT)).for_each(|leaf| {
                 self.insert_recursive(leaf, item_index, items);
             });
             return;
+        }
+        // if the node is a stem (has leaves to insert), EXIT
+        {
+            debug_assert!(self.nodes[target_node_index].leaves.is_none());
         }
 
         if let Some(node_list_index) = self.nodes[target_node_index].data_head {
@@ -95,12 +105,16 @@ impl QuadTree {
 
             return;
         }
+        // if the node is a leaf and has existing data, push new data and EXIT
+        {
+            debug_assert!(self.nodes[target_node_index].data_head.is_none());
+        }
 
         // yikes this is really confusing
         let node_index = self.node_pointers.len();
-        self.nodes[target_node_index].data_head = Some(node_index);
         self.node_pointers.push(Vec::with_capacity(self.leaf_capacity));
         self.node_pointers[node_index].push(item_index);
+        self.nodes[target_node_index].data_head = Some(node_index);
     }
 
     fn search_recursive(&self, target_node_index: usize, boundary: &BoundingBox, outputs: &mut Vec<usize>) {
@@ -116,9 +130,8 @@ impl QuadTree {
         }
 
         if let Some(node_list_index) = self.nodes[target_node_index].data_head {
-            self.node_pointers[node_list_index].iter().for_each(|&item_index| {
-                outputs.push(item_index);
-            });
+            // iteratively clone data from leaf into output vec
+            outputs.extend_from_slice(&self.node_pointers[node_list_index]);
         }
     }
 
@@ -139,6 +152,9 @@ impl QuadTree {
         if let Some(node_list_index) = self.nodes[target_node_index].data_head {
             // drains the (now stem) node's data to pour into new leaves
             let stored_item_indices: Vec<usize> = self.node_pointers[node_list_index].drain(..).collect();
+            {
+                debug_assert!(stored_item_indices.len() == self.leaf_capacity + 1);
+            }
 
             ((self.nodes.len() - Self::STEM_LEAF_COUNT)..self.nodes.len()).for_each(|leaf| {
                 stored_item_indices.iter().for_each(|&item_index| {
@@ -149,11 +165,11 @@ impl QuadTree {
     }
 }
 
+/// typical tree structure, actually takes ownership of the data. pretty
+/// readable and safe but slow
 #[allow(dead_code)]
 #[repr(C)]
 #[derive(Debug)]
-/// typical tree structure, actually takes ownership of the data. pretty
-/// readable and safe but slow
 pub struct QuadTreeOwner {
     pub points: Vec<Particle>,
     pub children: Option<[Box<QuadTreeOwner>; 4]>,
@@ -224,6 +240,7 @@ impl QuadTreeOwner {
             Box::new(QuadTreeOwner::build(self.capacity, quads[2])),
             Box::new(QuadTreeOwner::build(self.capacity, quads[3])),
         ]);
+
         self.points.iter().for_each(|particle| {
             if let Some(children) = &mut self.children {
                 children.iter_mut().for_each(|child| {

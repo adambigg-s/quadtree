@@ -122,8 +122,12 @@ impl PrimitiveRenderer {
                     _pad_8: [0; 8],
                 }),
             );
-            let color = [0.7, 0.7, 0.7];
-            let mut instances = Vec::with_capacity(state.particles.len() * 6);
+            let Some(instance_size) = target.instance_size
+            else {
+                panic!("instance draw size not specified")
+            };
+            let color: [f32; 3] = [0.7, 0.7, 0.7];
+            let mut instances = Vec::with_capacity(state.particles.len() * instance_size);
             state.particles.iter().for_each(|particle| {
                 instances.extend_from_slice(&[particle.position.x, particle.position.y, particle.radius]);
                 instances.extend_from_slice(&color);
@@ -131,8 +135,11 @@ impl PrimitiveRenderer {
             if instances.is_empty() {
                 break 'circles;
             }
-            gfx::update_buffer(target.bindings.vertex_buffers[1], &gfx::slice_as_range(&instances));
-            gfx::draw(0, target.draw_elements, instances.len() / target.draw_elements);
+            gfx::update_buffer(
+                target.bindings.vertex_buffers[1],
+                &gfx::slice_as_range(&instances[0..instances.len()]),
+            );
+            gfx::draw(0, target.draw_elements, instances.len() / instance_size);
         }
 
         'polygons: {
@@ -166,6 +173,13 @@ impl PrimitiveRenderer {
         });
         self.set_pipeline = gfx::make_pipeline(&gfx::PipelineDesc {
             shader: gfx::make_shader(&circ_shader::circle_shader_desc(gfx::query_backend())),
+            cull_mode: gfx::CullMode::None,
+            depth: gfx::DepthState {
+                compare: gfx::CompareFunc::Always,
+                write_enabled: false,
+                ..Default::default()
+            },
+            alpha_to_coverage_enabled: true,
             layout: {
                 let mut layout = gfx::VertexLayoutState::new();
 
@@ -196,7 +210,7 @@ impl PrimitiveRenderer {
                 pipeline: self.set_pipeline,
                 bindings: self.set_bindings,
                 draw_elements: vertices.len() / 2,
-                instance_size: Some(instance_size),
+                instance_size: Some(instance_size / size_of::<f32>()),
             },
         );
     }

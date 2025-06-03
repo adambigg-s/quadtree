@@ -39,6 +39,9 @@ extern "C" fn init(ptr: *mut c_void) {
 extern "C" fn frame(ptr: *mut c_void) {
     let state = unsafe { &mut *(ptr as *mut ApplicationState) };
 
+    println!("state tree length: {}", state.state.quadtree.nodes.len());
+    println!("particles: {}", state.state.particles.len());
+
     state.update();
     state.clock.update(time::now());
 

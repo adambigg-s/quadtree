@@ -28,14 +28,14 @@ void main() {
 in vec2 f_pos;
 in vec3 f_color;
 
-out vec3 color;
+out vec4 color;
 
 void main() {
     if (length(f_pos) > 1.) {
         discard;
     }
 
-    color = f_color;
+    color = vec4(f_color, 0.9);
 }
 @end
 

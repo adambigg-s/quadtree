@@ -53,6 +53,11 @@ impl QuadTree {
         (0..items.len()).for_each(|index| {
             self.insert_recursive(Self::ROOT_INDEX, index, items);
         });
+
+        // ensure tree is constructed in a logical manner
+        {
+            debug_assert!(self.nodes.len() % 4 == 1); // must add one for the root
+        }
     }
 
     pub fn query_range(&self, boundary: &BoundingBox) -> Vec<usize> {

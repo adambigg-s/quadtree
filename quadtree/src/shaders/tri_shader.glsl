@@ -11,7 +11,7 @@ layout (binding = 0) uniform v_params_world {
 void main() {
     f_color = v_color;
 
-    vec2 ndc = (v_pos / world_dims) * 2. - 1;
+    vec2 ndc = (v_pos / world_dims) * 2. - 1.;
     gl_Position = vec4(ndc, 0., 1.);
 }
 @end

@@ -179,7 +179,6 @@ impl PrimitiveRenderer {
                 write_enabled: false,
                 ..Default::default()
             },
-            alpha_to_coverage_enabled: true,
             layout: {
                 let mut layout = gfx::VertexLayoutState::new();
 
@@ -200,6 +199,7 @@ impl PrimitiveRenderer {
 
                 layout
             },
+            alpha_to_coverage_enabled: true,
             primitive_type: gfx::PrimitiveType::Triangles,
             label: CString::from_str("circle pipeline").unwrap().as_ptr(),
             ..Default::default()

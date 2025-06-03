@@ -68,7 +68,7 @@ impl State {
             dimensions: BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             particles: Vec::new(),
             config: SimulationConfig {
-                starting_spawn: 10,
+                starting_spawn: 50,
                 gravity: 1e3,
                 epsilon_squared: 50.,
                 velocity_rand_max: 50.,
@@ -77,7 +77,7 @@ impl State {
                 neighbor_distance: 300.,
             },
             quadtree: QuadTree::build(
-                2,
+                1,
                 BoundingBox::build(Vec2::ZERO, Vec2::new(width as f32, height as f32)),
             ),
         }
@@ -89,41 +89,6 @@ impl State {
         });
         // spawns one big particle in the middle
         self.particles.push(Particle::new(self.dimensions.max / 2., Vec2::ZERO, 10000.));
-    }
-
-    pub fn handle_event(&mut self, event: sapp::Event) {
-        if event.mouse_button == sapp::Mousebutton::Left && event._type == sapp::EventType::MouseDown {
-            self.particles.push(Particle::new(
-                mouse_to_screen(event.mouse_x, event.mouse_y, &self.dimensions),
-                Vec2::ZERO,
-                self.config.mass_rand_max,
-            ));
-            wait(3);
-        }
-        if event.key_code == sapp::Keycode::R {
-            self.particles.clear();
-        }
-    }
-
-    pub fn update_dimensions(&mut self, width: f32, height: f32) {
-        self.dimensions.max = Vec2::new(width, height);
-        self.quadtree.root().boundary = self.dimensions;
-    }
-
-    pub fn add_random_particle(&mut self) {
-        self.particles.push(Particle::new(
-            positive_rand_range_vec2(self.dimensions.max),
-            zero_centered_range_vec2(self.config.velocity_rand_max),
-            fastrand::f32() * self.config.mass_rand_max,
-        ));
-    }
-
-    pub fn init_tree(&mut self) {
-        self.quadtree.construct_tree(&self.particles);
-    }
-
-    pub fn query_tree(tree: &QuadTree, pos: Vec2, radius: f32) -> Vec<usize> {
-        tree.query_range(&BoundingBox::build(pos - Vec2::splat(radius), pos + Vec2::splat(radius)))
     }
 
     pub fn update(&mut self, mut dt: f32) {
@@ -156,6 +121,41 @@ impl State {
             particle.update(dt);
             particle.constrain(&self.dimensions);
         }
+    }
+
+    pub fn handle_event(&mut self, event: sapp::Event) {
+        if event.mouse_button == sapp::Mousebutton::Left && event._type == sapp::EventType::MouseDown {
+            self.particles.push(Particle::new(
+                mouse_to_screen(event.mouse_x, event.mouse_y, &self.dimensions),
+                Vec2::ZERO,
+                self.config.mass_rand_max,
+            ));
+            wait(3);
+        }
+        if event.key_code == sapp::Keycode::R {
+            self.particles.clear();
+        }
+    }
+
+    pub fn update_dimensions(&mut self, width: f32, height: f32) {
+        self.dimensions.max = Vec2::new(width, height);
+        self.quadtree.root().boundary = self.dimensions;
+    }
+
+    fn add_random_particle(&mut self) {
+        self.particles.push(Particle::new(
+            positive_rand_range_vec2(self.dimensions.max),
+            zero_centered_range_vec2(self.config.velocity_rand_max),
+            fastrand::f32() * self.config.mass_rand_max,
+        ));
+    }
+
+    fn init_tree(&mut self) {
+        self.quadtree.construct_tree(&self.particles);
+    }
+
+    fn query_tree(tree: &QuadTree, pos: Vec2, radius: f32) -> Vec<usize> {
+        tree.query_range(&BoundingBox::build(pos - Vec2::splat(radius), pos + Vec2::splat(radius)))
     }
 }
 

@@ -52,7 +52,7 @@ impl PrimitiveRenderer {
     pub fn init_pass_action(&mut self) {
         self.set_pass_action.colors[0] = gfx::ColorAttachmentAction {
             load_action: gfx::LoadAction::Clear,
-            clear_value: gfx::Color { r: 0., g: 0., b: 0., ..Default::default() },
+            clear_value: gfx::Color { r: 0.07, g: 0.07, b: 0.09, ..Default::default() },
             ..Default::default()
         };
     }
@@ -89,9 +89,9 @@ impl PrimitiveRenderer {
 
                 fn traverse_recursive(quadtree: &QuadTree, target_node_index: usize, data: &mut Vec<f32>) {
                     if let Some(leaf_start) = quadtree.nodes[target_node_index].leaves {
-                        for leaf in leaf_start..(leaf_start + QuadTree::STEM_LEAF_COUNT) {
+                        (leaf_start..(leaf_start + QuadTree::STEM_LEAF_COUNT)).for_each(|leaf| {
                             traverse_recursive(quadtree, leaf, data);
-                        }
+                        });
 
                         let node = quadtree.nodes[target_node_index];
                         let center = node.boundary.center();
@@ -126,7 +126,7 @@ impl PrimitiveRenderer {
             else {
                 panic!("instance draw size not specified")
             };
-            let color: [f32; 3] = [0.7, 0.7, 0.7];
+            let color: [f32; 3] = [0.85, 0.85, 0.85];
             let mut instances = Vec::with_capacity(state.particles.len() * instance_size);
             state.particles.iter().for_each(|particle| {
                 instances.extend_from_slice(&[particle.position.x, particle.position.y, particle.radius]);

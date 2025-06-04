@@ -85,10 +85,10 @@ impl QuadTree {
         if !self.nodes[target_node_index].boundary.contains(items[item_index].position()) {
             return;
         }
-        // if we don't contain the item, EXIT
         {
             debug_assert!(self.nodes[target_node_index].boundary.contains(items[item_index].position()));
         }
+        // if reached, the item is contained within the tree
 
         if let Some(leaf_start) = self.nodes[target_node_index].leaves {
             (leaf_start..(leaf_start + Self::STEM_LEAF_COUNT)).for_each(|leaf| {
@@ -96,10 +96,10 @@ impl QuadTree {
             });
             return;
         }
-        // if the node is a stem (has leaves to insert), EXIT
         {
             debug_assert!(self.nodes[target_node_index].leaves.is_none());
         }
+        // if reached, we are dealing with a leaf
 
         if let Some(node_list_index) = self.nodes[target_node_index].data_head {
             self.node_pointers[node_list_index].push(item_index);
@@ -108,12 +108,13 @@ impl QuadTree {
                 self.subdivide_stem_to_leaf(target_node_index, items);
             }
 
+            // if the node is a leaf and has existing data, push new data and EXIT
             return;
         }
-        // if the node is a leaf and has existing data, push new data and EXIT
         {
             debug_assert!(self.nodes[target_node_index].data_head.is_none());
         }
+        // if reached, we have an empty leaf. need to create a vec of ptr for leaf
 
         // yikes this is really confusing
         let node_index = self.node_pointers.len();

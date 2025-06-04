@@ -2,6 +2,8 @@ use glam::Vec2;
 
 use sokol::time;
 
+pub const EPSILON: f32 = 1e-9;
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct BoundingBox {

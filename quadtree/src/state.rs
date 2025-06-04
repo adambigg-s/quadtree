@@ -2,6 +2,7 @@ use glam::Vec2;
 
 use sokol::app as sapp;
 
+use crate::barnes_hut::BarnesHutWrapper;
 use crate::quadtree::PositionPlanar;
 use crate::quadtree::QuadTree;
 use crate::utils::mouse_to_screen;
@@ -95,12 +96,15 @@ impl State {
         dt *= self.config.frame_time_dt_mod;
 
         self.init_tree();
+        let mut bh = BarnesHutWrapper::new();
+        bh.build_hierarchy(&self.quadtree, &self.particles);
         for target_index in 0..self.particles.len() {
             let neighbors = Self::query_tree(
                 &self.quadtree,
                 self.particles[target_index].position,
                 self.config.neighbor_distance,
             );
+
             for other_index in neighbors {
                 if target_index == other_index {
                     continue;

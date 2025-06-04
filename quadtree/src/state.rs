@@ -92,39 +92,50 @@ impl State {
         self.particles.push(Particle::new(self.dimensions.max / 2., Vec2::ZERO, 10000.));
     }
 
+    // pub fn update(&mut self, mut dt: f32) {
+    //     dt *= self.config.frame_time_dt_mod;
+
+    //     self.init_tree();
+    //     let mut bh = BarnesHutWrapper::new();
+    //     bh.build_hierarchy(&self.quadtree, &self.particles);
+    //     for target_index in 0..self.particles.len() {
+    //         let neighbors = Self::query_tree(
+    //             &self.quadtree,
+    //             self.particles[target_index].position,
+    //             self.config.neighbor_distance,
+    //         );
+
+    //         for other_index in neighbors {
+    //             if target_index == other_index {
+    //                 continue;
+    //             }
+
+    //             let other = self.particles[other_index];
+    //             let target = &mut self.particles[target_index];
+
+    //             let pointing = other.position - target.position;
+
+    //             let sq_radius = pointing.length_squared() + self.config.epsilon_squared;
+    //             let force = self.config.gravity * target.mass * other.mass / sq_radius;
+    //             target.acceleration += pointing.normalize() * force / target.mass;
+    //         }
+    //     }
+
+    //     for particle in &mut self.particles {
+    //         particle.update(dt);
+    //         particle.constrain(&self.dimensions);
+    //     }
+    // }
+
+    // update function using barnes-hut approximation
     pub fn update(&mut self, mut dt: f32) {
         dt *= self.config.frame_time_dt_mod;
 
         self.init_tree();
-        let mut bh = BarnesHutWrapper::new();
-        bh.build_hierarchy(&self.quadtree, &self.particles);
-        for target_index in 0..self.particles.len() {
-            let neighbors = Self::query_tree(
-                &self.quadtree,
-                self.particles[target_index].position,
-                self.config.neighbor_distance,
-            );
+        let mut barnes_hut = BarnesHutWrapper::new();
+        barnes_hut.build_hierarchy(&self.quadtree, &self.particles);
 
-            for other_index in neighbors {
-                if target_index == other_index {
-                    continue;
-                }
-
-                let other = self.particles[other_index];
-                let target = &mut self.particles[target_index];
-
-                let pointing = other.position - target.position;
-
-                let sq_radius = pointing.length_squared() + self.config.epsilon_squared;
-                let force = self.config.gravity * target.mass * other.mass / sq_radius;
-                target.acceleration += pointing.normalize() * force / target.mass;
-            }
-        }
-
-        for particle in &mut self.particles {
-            particle.update(dt);
-            particle.constrain(&self.dimensions);
-        }
+        for target_index in 0..self.particles.len() {}
     }
 
     pub fn handle_event(&mut self, event: sapp::Event) {

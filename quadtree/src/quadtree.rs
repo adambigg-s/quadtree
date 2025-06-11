@@ -7,23 +7,6 @@ pub trait PositionPlanar {
     fn position(&self) -> Vec2;
 }
 
-pub enum TreeNode {
-    Stem,
-    Leaf,
-}
-
-pub struct TreeTraverser<'d> {
-    pub tree: &'d QuadTree,
-    pub level: usize,
-    pub quadrant: Option<usize>,
-}
-
-impl<'d> TreeTraverser<'d> {
-    pub fn build(tree: &'d QuadTree) -> Self {
-        TreeTraverser { tree, level: 0, quadrant: None }
-    }
-}
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct QuadTreeNode {

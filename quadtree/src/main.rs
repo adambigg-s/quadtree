@@ -77,7 +77,7 @@ struct ApplicationState {
 
 impl ApplicationState {
     fn update(&mut self) {
-        self.state.update(self.clock.frame_time);
+        self.state.update_barnes_hut(self.clock.frame_time);
     }
 
     fn handle_event(&mut self, event: sapp::Event) {
@@ -99,7 +99,7 @@ fn main() {
             set_pipeline: gfx::Pipeline::new(),
             set_pass_action: gfx::PassAction::new(),
         },
-        state: State::build(800, 600),
+        state: State::build(1920, 1080),
         clock: Clock { curr_time: 0, last_time: 0, frame_time: 0. },
     };
 
@@ -110,8 +110,8 @@ fn main() {
         frame_userdata_cb: Some(frame),
         event_userdata_cb: Some(event),
         cleanup_userdata_cb: Some(cleanup),
-        width: 800,
-        height: 600,
+        width: 1920,
+        height: 1080,
         high_dpi: true,
         sample_count: 4,
         window_title: CString::from_str("quadtree visualization with Sokol").unwrap().as_ptr(),

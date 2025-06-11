@@ -24,6 +24,10 @@ impl BoundingBox {
         self.max.x - self.min.x
     }
 
+    pub fn max_dimension(&self) -> f32 {
+        self.height().max(self.width())
+    }
+
     pub fn contains(&self, point: Vec2) -> bool {
         self.min.x <= point.x && self.min.y <= point.y && self.max.x > point.x && self.max.y > point.y
     }
